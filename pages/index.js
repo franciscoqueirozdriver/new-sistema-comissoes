@@ -69,7 +69,7 @@ export default function Dashboard() {
           <Card className="col-span-2">
             <CardContent className="pb-2">
               <h2 className="font-bold text-sm mb-2">Realizado x Previsto (Mensal)</h2>
-              <div className="h-32">
+              <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={data}>
                     <XAxis dataKey="name" />
