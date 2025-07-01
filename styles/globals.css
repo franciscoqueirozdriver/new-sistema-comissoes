@@ -1,3 +1,35 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.rd-day--green,
+.rd-day--red,
+.rd-day--orange {
+  position: relative;
+}
+
+.rd-day--green::after,
+.rd-day--red::after,
+.rd-day--orange::after {
+  content: "";
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  transform: translateX(-50%);
+}
+
+.rd-day--green::after {
+  background-color: #10B981;
+}
+
+.rd-day--red::after {
+  background-color: #EF4444;
+}
+
+.rd-day--orange::after {
+  background-color: #F59E0B;
+}
+

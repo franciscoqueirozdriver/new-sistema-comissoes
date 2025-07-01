@@ -1,31 +1,46 @@
-"use client"
-
-import { useState } from "react"
+// components/ui/calendar.js
+import { useEffect, useState } from "react"
 import { DayPicker } from "react-day-picker"
 import "react-day-picker/dist/style.css"
 
 export function Calendar() {
-  const [selected, setSelected] = useState(null)
+  const [pagamentos, setPagamentos] = useState([])
+
+  useEffect(() => {
+    fetch("/api/pagamentos-calendario")
+      .then(res => res.json())
+      .then(data => {
+        const formatado = data.map(p => ({
+          ...p,
+          date: new Date(p.date),
+        }))
+        setPagamentos(formatado)
+      })
+  }, [])
+
+  function renderDay(day) {
+    const item = pagamentos.find(p => p.date.toDateString() === day.toDateString())
+    const title = item?.tooltip?.join("\n") || undefined
+    return <div title={title}>{day.getDate()}</div>
+  }
 
   return (
-    <div className="rounded-lg border shadow bg-white w-full max-w-[280px] overflow-hidden">
-      <div className="p-4">
-        <DayPicker
-          mode="single"
-          selected={selected}
-          onSelect={setSelected}
-          className="text-sm"
-          classNames={{
-            caption: "flex justify-start", // alinhamento do mês
-          }}
-        />
-        {selected && (
-          <p className="mt-2 text-gray-600 text-center text-sm">
-            Data selecionada:{" "}
-            <strong>{selected.toLocaleDateString("pt-BR")}</strong>
-          </p>
-        )}
-      </div>
-    </div>
+    <DayPicker
+      mode="single"
+      showOutsideDays
+      fixedWeeks
+      modifiers={{
+        recebido: pagamentos.filter(p => p.color === "green").map(p => p.date),
+        previsto: pagamentos.filter(p => p.color === "orange").map(p => p.date),
+        vencido: pagamentos.filter(p => p.color === "red").map(p => p.date),
+      }}
+      modifiersStyles={{
+        recebido: { color: "green" },
+        previsto: { color: "orange" },
+        vencido: { color: "red" },
+      }}
+      renderDay={renderDay}
+    />
   )
 }
+
