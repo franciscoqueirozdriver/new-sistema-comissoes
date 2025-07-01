@@ -1,4 +1,3 @@
-// pages/api/pizza-fonte.js
 import { google } from "googleapis"
 
 export default async function handler(req, res) {
@@ -11,23 +10,43 @@ export default async function handler(req, res) {
   })
 
   const sheets = google.sheets({ version: "v4", auth })
-  const range = "Oportunidades!A1:Z1000"
-  const { data } = await sheets.spreadsheets.values.get({
-    spreadsheetId: process.env.SPREADSHEET_ID,
-    range,
+  const spreadsheetId = process.env.SPREADSHEET_ID
+
+  const config = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: "Configuracoes!A1:Z1000",
   })
 
-  const [header, ...rows] = data.values
-  const idxFonte = header.indexOf("fonte")
+  const configValues = config.data.values || []
+  const fontesValidas = configValues
+    .slice(1)
+    .map(row => row[2]) // coluna C (índice 2) = fonte
+    .filter(Boolean)
 
-  const contagem = {}
-  rows.forEach(row => {
-    const valor = row[idxFonte]
-    if (valor) {
-      contagem[valor] = (contagem[valor] || 0) + 1
-    }
+  const oportunidades = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: "Oportunidades!A1:Z1000",
   })
 
-  const resultado = Object.entries(contagem).map(([name, value]) => ({ name, value }))
+  const header = oportunidades.data.values[0]
+  const rows = oportunidades.data.values.slice(1)
+
+  const colIndexFonte = header.findIndex(h => h.trim().toLowerCase() === "fonte")
+
+  const counts = {}
+
+  for (const row of rows) {
+    const fonte = (row[colIndexFonte] || "").trim()
+    if (!fonte || !fontesValidas.includes(fonte)) continue
+
+    counts[fonte] = (counts[fonte] || 0) + 1
+  }
+
+  const resultado = Object.entries(counts).map(([name, value]) => ({
+    name,
+    value,
+  }))
+
   res.status(200).json(resultado)
 }
+

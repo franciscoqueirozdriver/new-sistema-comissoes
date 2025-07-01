@@ -17,28 +17,14 @@ import { Calendar } from "@/components/ui/calendar"
 export default function Dashboard() {
   const [cards, setCards] = useState({})
   const [grafico, setGrafico] = useState([])
-  const [pieOportunidade, setPieOportunidade] = useState([])
-  const [pieFunil, setPieFunil] = useState([])
-
   const meses = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"]
   const anoAtual = new Date().getFullYear()
 
+const cores = ["#7C3AED", "#10B981", "#F59E0B", "#3B82F6", "#EF4444"]
+
   useEffect(() => {
-    fetch("/api/cards")
-      .then(res => res.json())
-      .then(setCards)
-
-    fetch("/api/grafico-mensal")
-      .then(res => res.json())
-      .then(setGrafico)
-
-    fetch("/api/pizza-fonte")
-      .then(res => res.json())
-      .then(setPieOportunidade)
-
-    fetch("/api/pizza-funil")
-      .then(res => res.json())
-      .then(setPieFunil)
+    fetch("/api/cards").then(res => res.json()).then(setCards)
+    fetch("/api/grafico-mensal").then(res => res.json()).then(setGrafico)
   }, [])
 
   const dadosPorMes = Array.from({ length: 12 }, (_, i) => {
@@ -52,8 +38,18 @@ export default function Dashboard() {
     }
   })
 
-  const formatarMoeda = valor =>
-    (valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+  const formatarMoeda = valor => (valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+
+ const [pieOportunidade, setPieOportunidade] = useState([])
+const [pieFunil, setPieFunil] = useState([])
+
+useEffect(() => {
+  fetch("/api/cards").then(res => res.json()).then(setCards)
+  fetch("/api/grafico-mensal").then(res => res.json()).then(setGrafico)
+  fetch("/api/pizza-fonte").then(res => res.json()).then(setPieOportunidade)
+  fetch("/api/pizza-funil").then(res => res.json()).then(setPieFunil)
+}, [])
+
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
@@ -98,37 +94,44 @@ export default function Dashboard() {
             </CardContent>
             <div className="flex gap-4 px-4 pb-4">
               <ResponsiveContainer width="50%" height={180}>
-                <PieChart>
-  <Tooltip />
-  <Pie
-    data={pieOportunidade}
-    dataKey="value"
-    nameKey="name"
-    outerRadius={60}
-    label={({ name, value }) => `${value}`}
-  >
-    {pieOportunidade.map((entry, index) => (
-      <Cell
-        key={`cell-o-${index}`}
-        fill={["#7C3AED", "#A78BFA", "#C4B5FD", "#DDD6FE", "#E0E7FF", "#E9D5FF"][index % 6]}
-      />
-    ))}
-  </Pie>
-</PieChart>
+  <PieChart>
+    <Tooltip />
+    <Legend layout="horizontal" verticalAlign="bottom" align="center" />
+    <Pie
+      data={pieOportunidade}
+      dataKey="value"
+      nameKey="name"
+      outerRadius={50}
+      innerRadius={30}
+    >
+      {pieOportunidade.map((entry, index) => (
+        <Cell key={`cell-o-${index}`} fill={cores[index % cores.length]} />
+      ))}
+    </Pie>
+  </PieChart>
+</ResponsiveContainer>
 
-              </ResponsiveContainer>
-              <ResponsiveContainer width="50%" height={180}>
-                <PieChart>
-                  <Pie data={pieFunil} dataKey="quantidade" nameKey="fase" outerRadius={60} label>
-                    {pieFunil.map((entry, index) => (
-                      <Cell key={`cell-f-${index}`} fill={["#7C3AED", "#A78BFA", "#C4B5FD"][index % 3]} />
-                    ))}
-                  </Pie>
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+<ResponsiveContainer width="50%" height={180}>
+  <PieChart>
+    <Tooltip />
+    <Legend layout="horizontal" verticalAlign="bottom" align="center" />
+    <Pie
+      data={pieFunil}
+      dataKey="value"
+      nameKey="name"
+      outerRadius={50}
+      innerRadius={30}
+    >
+      {pieFunil.map((entry, index) => (
+        <Cell key={`cell-f-${index}`} fill={cores[index % cores.length]} />
+      ))}
+    </Pie>
+  </PieChart>
+</ResponsiveContainer>
+
             </div>
           </Card>
+
           <Card>
             <CardContent className="p-4">
               <h2 className="font-semibold">Calendário de Pagamentos</h2>
@@ -140,4 +143,3 @@ export default function Dashboard() {
     </div>
   )
 }
-

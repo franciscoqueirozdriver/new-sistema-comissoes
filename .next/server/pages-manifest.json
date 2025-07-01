@@ -2,8 +2,9 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/api/grafico-mensal": "pages/api/grafico-mensal.js",
+  "/": "pages/index.js",
   "/api/cards": "pages/api/cards.js",
+  "/api/grafico-mensal": "pages/api/grafico-mensal.js",
   "/api/pizza-fonte": "pages/api/pizza-fonte.js",
-  "/": "pages/index.js"
+  "/api/pizza-funil": "pages/api/pizza-funil.js"
 }
