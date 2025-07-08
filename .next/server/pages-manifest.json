@@ -3,9 +3,9 @@
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
   "/": "pages/index.js",
-  "/api/pagamentos-calendario": "pages/api/pagamentos-calendario.js",
   "/api/cards": "pages/api/cards.js",
+  "/api/pizza-fonte": "pages/api/pizza-fonte.js",
   "/api/grafico-mensal": "pages/api/grafico-mensal.js",
-  "/api/pizza-funil": "pages/api/pizza-funil.js",
-  "/api/pizza-fonte": "pages/api/pizza-fonte.js"
+  "/api/dashboard": "pages/api/dashboard.js",
+  "/api/pizza-funil": "pages/api/pizza-funil.js"
 }
