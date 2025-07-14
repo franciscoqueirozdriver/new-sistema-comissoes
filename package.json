@@ -1,6 +1,7 @@
 {
   "name": "next-tailwind-sistema-comissoes",
   "version": "1.0.0",
+  "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -10,15 +11,15 @@
     "@radix-ui/react-popover": "^1.1.14",
     "googleapis": "^150.0.1",
     "lucide-react": "^0.525.0",
-    "next": "^14.1.4",
-    "react": "^18.2.0",
+    "next": "14.1.4",
+    "react": "18.2.0",
     "react-day-picker": "^9.7.0",
-    "react-dom": "^18.2.0",
+    "react-dom": "18.2.0",
     "recharts": "^3.0.2"
   },
   "devDependencies": {
-    "autoprefixer": "^10.4.14",
-    "postcss": "^8.4.21",
-    "tailwindcss": "^3.3.2"
+    "autoprefixer": "10.4.17",
+    "postcss": "8.4.35",
+    "tailwindcss": "3.4.1"
   }
 }
