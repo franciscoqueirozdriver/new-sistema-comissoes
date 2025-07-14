@@ -1,6 +1,1 @@
-{
-  "/_app": "pages/_app.js",
-  "/_error": "pages/_error.js",
-  "/_document": "pages/_document.js",
-  "/oportunidades": "pages/oportunidades.js"
-}
+{"/_app":"pages/_app.js","/_error":"pages/_error.js","/api/oportunidades":"pages/api/oportunidades.js","/api/oportunidades/[id]":"pages/api/oportunidades/[id].js","/":"pages/index.html","/api/dashboard":"pages/api/dashboard.js","/api/configuracoes":"pages/api/configuracoes.js","/api/dashboard (cópia)":"pages/api/dashboard (cópia).js","/oportunidades":"pages/oportunidades.html","/_document":"pages/_document.js","/404":"pages/404.html"}
