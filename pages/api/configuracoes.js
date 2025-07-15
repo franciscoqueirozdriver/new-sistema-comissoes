@@ -1,41 +1,56 @@
-// pages/api/configuracoes.js
-import { google } from "googleapis";
+import { getSheetData, updateSheet } from "@/lib/googleSheetsService";
+
+const ABA_CONFIGURACOES = "Configuracoes";
 
 export default async function handler(req, res) {
-  const auth = new google.auth.GoogleAuth({
-    credentials: {
-      client_email: process.env.GOOGLE_CLIENT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-    },
-    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-  });
+  try {
+    switch (req.method) {
+      case "GET": {
+        // --- LER E ENVIAR AS CONFIGURAÇÕES ---
+        const { header, rows } = await getSheetData(ABA_CONFIGURACOES);
+        const configData = {};
 
-  const sheets = google.sheets({ version: "v4", auth });
-  const spreadsheetId = process.env.SPREADSHEET_ID;
+        // Transforma as colunas da planilha em um objeto
+        header.forEach((colName, colIndex) => {
+          // Para cada coluna, pega todos os seus itens, ignorando células vazias
+          const items = rows.map(row => row[colIndex]).filter(item => item);
+          configData[colName] = items;
+        });
 
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: "Configuracoes!A1:Z1000",
-  });
+        return res.status(200).json(configData);
+      }
 
-  const values = response.data.values || [];
-  const header = values[0] || [];
-  const rows = values.slice(1);
+      case "PUT": {
+        // --- RECEBER E SALVAR AS NOVAS CONFIGURAÇÕES ---
+        const newConfig = req.body;
+        const header = Object.keys(newConfig);
+        const columns = Object.values(newConfig);
 
-  const idxFonte = header.findIndex(h => h.toLowerCase().trim() === "fonte");
-  const idxFase = header.findIndex(h => h.toLowerCase().trim() === "fase_do_funil");
+        // Encontra o tamanho da maior coluna para saber quantas linhas a planilha terá
+        const maxLength = Math.max(...columns.map(col => col.length));
 
-  const fontes = new Set();
-  const fases = new Set();
+        const newRows = [];
+        // Cria as linhas da planilha a partir do objeto
+        for (let i = 0; i < maxLength; i++) {
+          const newRow = header.map(colName => newConfig[colName][i] || "");
+          newRows.push(newRow);
+        }
 
-  for (const row of rows) {
-    if (row[idxFonte]) fontes.add(row[idxFonte].trim());
-    if (row[idxFase]) fases.add(row[idxFase].trim());
+        // Prepara os dados finais (cabeçalho + linhas)
+        const dataToSave = [header, ...newRows];
+
+        // Usa nosso serviço para limpar a aba e escrever os novos dados
+        await updateSheet(ABA_CONFIGURACOES, dataToSave);
+
+        return res.status(200).json({ success: true, message: "Configurações salvas com sucesso." });
+      }
+
+      default:
+        res.setHeader("Allow", ["GET", "PUT"]);
+        return res.status(405).end(`Método ${req.method} não permitido.`);
+    }
+  } catch (error) {
+    console.error("Erro na API /api/configuracoes:", error);
+    res.status(500).json({ error: "Erro ao processar as configurações.", details: error.message });
   }
-
-  res.status(200).json({
-    fontes: Array.from(fontes),
-    fases: Array.from(fases),
-  });
 }
-
