@@ -1,6 +1,6 @@
-// /pages/api/dashboard.js (Versão final e completa)
-
 import { getSheetData } from "@/lib/googleSheetsService";
+
+export const dynamic = 'force-dynamic'; // <-- LINHA ADICIONADA
 
 // --- Funções de Cálculo (Lógica de Negócio Isolada) ---
 

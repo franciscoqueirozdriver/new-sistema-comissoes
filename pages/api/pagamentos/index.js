@@ -1,5 +1,7 @@
 import { getSheetData } from "@/lib/googleSheetsService";
 
+export const dynamic = 'force-dynamic'; // <-- LINHA ADICIONADA
+
 /**
  * Transforma linhas de uma planilha em um array de objetos, usando o cabeçalho como chaves.
  */

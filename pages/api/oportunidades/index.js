@@ -1,6 +1,8 @@
 import { getSheetData, appendRows } from "@/lib/googleSheetsService";
 import { gerarPagamentos } from "@/lib/financeiroService";
 
+export const dynamic = 'force-dynamic'; // <-- LINHA ADICIONADA
+
 const ABA_OPORTUNIDADES = "Oportunidades";
 const ABA_PAGAMENTOS = "Pagamentos";
 
@@ -36,24 +38,19 @@ export default async function handler(req, res) {
   try {
     switch (req.method) {
       case "GET":
-        // --- Listar todas as oportunidades ---
         const { header, rows } = await getSheetData(ABA_OPORTUNIDADES);
         const oportunidades = rowsToObjects(header, rows);
         return res.status(200).json(oportunidades);
 
       case "POST":
-        // --- Criar uma nova oportunidade ---
         const novaOportunidade = req.body;
         const sheetData = await getSheetData(ABA_OPORTUNIDADES);
 
         const proximoId = getNextId(sheetData.rows, sheetData.header);
         novaOportunidade.id = String(proximoId);
 
-        // Garante que a nova linha tenha a mesma ordem de colunas do cabeçalho
         const novaLinhaArray = sheetData.header.map(colName => novaOportunidade[colName] || "");
         
-        // Adiciona a nova oportunidade e seus pagamentos gerados
-        // Promise.all executa as duas escritas em paralelo para melhor performance
         await Promise.all([
             appendRows(ABA_OPORTUNIDADES, [novaLinhaArray]),
             appendRows(ABA_PAGAMENTOS, gerarPagamentos(proximoId, novaOportunidade))

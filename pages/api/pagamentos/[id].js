@@ -1,9 +1,11 @@
 import { getSheetData, updateSheet } from "@/lib/googleSheetsService";
 
+export const dynamic = 'force-dynamic'; // <-- LINHA ADICIONADA
+
 const ABA_PAGAMENTOS = "Pagamentos";
 
 export default async function handler(req, res) {
-  // Pega o ID do pagamento da URL, ex: /api/pagamentos/1752462589153 -> id = "1752462589153"
+  // Pega o ID do pagamento da URL
   const { id } = req.query;
 
   try {

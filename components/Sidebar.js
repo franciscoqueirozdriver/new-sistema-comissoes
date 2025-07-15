@@ -1,5 +1,3 @@
-// /components/Sidebar.js (Versão Final com status de desenvolvimento)
-
 import Link from "next/link";
 import { useRouter } from "next/router";
 
@@ -8,9 +6,8 @@ const navLinks = [
   { href: "/oportunidades", label: "Oportunidades" },
   { href: "/pagamentos", label: "Pagamentos" },
   { href: "/metas", label: "Metas" },
-  // Adicionando a propriedade 'emDesenvolvimento' aos itens futuros
-  { href: "#", label: "Despesas", emDesenvolvimento: true },
-  { href: "#", label: "Outras Receitas", emDesenvolvimento: true },
+  { href: "/despesas", label: "Despesas", emDesenvolvimento: true },
+  { href: "/outras-receitas", label: "Outras Receitas", emDesenvolvimento: true },
   { href: "/configuracoes", label: "Configurações" },
 ];
 
@@ -22,24 +19,19 @@ export default function Sidebar() {
       <h2 className="text-xl font-bold">Sistema de Comissões</h2>
       <nav className="flex flex-col gap-2">
         {navLinks.map((link) => (
-          <Link key={link.href} href={link.href} legacyBehavior>
+          // CORREÇÃO: Usando o 'label' como chave, que é sempre único.
+          <Link key={link.label} href={link.href || '#'} legacyBehavior>
             <a
-              // Adiciona o título (tooltip) se estiver em desenvolvimento
               title={link.emDesenvolvimento ? "Em desenvolvimento" : ""}
-              className={`
-                p-2 rounded-md text-left transition-colors
-                ${
-                  router.pathname === link.href && !link.emDesenvolvimento
-                    ? "bg-violet-700 font-bold text-white"
-                    : "hover:bg-violet-800 hover:text-violet-300"
-                }
-                ${
-                  // Aplica os estilos de "desabilitado" se estiver em desenvolvimento
-                  link.emDesenvolvimento
-                    ? "opacity-50 cursor-not-allowed"
-                    : ""
-                }
-              `}
+              className={`p-2 rounded-md text-left transition-colors ${
+                router.pathname === link.href && !link.emDesenvolvimento
+                  ? "bg-violet-700 font-bold text-white"
+                  : "hover:bg-violet-800 hover:text-violet-300"
+              } ${
+                link.emDesenvolvimento
+                  ? "opacity-50 cursor-not-allowed"
+                  : ""
+              }`}
             >
               {link.label}
             </a>
