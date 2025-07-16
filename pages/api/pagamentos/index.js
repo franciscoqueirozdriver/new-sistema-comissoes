@@ -1,74 +1,100 @@
 import { getSheetData } from "@/lib/googleSheetsService";
 
-export const dynamic = 'force-dynamic'; // <-- LINHA ADICIONADA
+export const dynamic = 'force-dynamic';
 
-/**
- * Transforma linhas de uma planilha em um array de objetos, usando o cabeçalho como chaves.
- */
 function rowsToObjects(header, rows) {
   return rows.map((row) => {
     const obj = {};
     header.forEach((key, i) => {
-      obj[key] = row[i] || "";
+      obj[key.toLowerCase().replace(/ /g, '_')] = row[i] || "";
     });
     return obj;
   });
 }
 
 export default async function handler(req, res) {
-  // O endpoint só aceitará o método GET por enquanto
   if (req.method !== 'GET') {
     res.setHeader('Allow', ['GET']);
     return res.status(405).end(`Método ${req.method} não permitido.`);
   }
 
   try {
-    // 1. Extrai os filtros da URL da requisição
-    const { ano, mes, empresa, status } = req.query;
+    // Agora a API pode receber também o 'id_oportunidade'
+    const { ano, mes, empresa, status, id_oportunidade } = req.query;
 
-    // 2. Busca os dados brutos das duas planilhas em paralelo
     const [pagamentosData, oportunidadesData] = await Promise.all([
       getSheetData("Pagamentos"),
       getSheetData("Oportunidades"),
     ]);
     
-    // Transforma os dados em arrays de objetos para facilitar a manipulação
     let pagamentos = rowsToObjects(pagamentosData.header, pagamentosData.rows);
     const oportunidades = rowsToObjects(oportunidadesData.header, oportunidadesData.rows);
 
-    // 3. Cria um "mapa" para ligar o ID da oportunidade ao nome da empresa
-    const empresaPorId = new Map(oportunidades.map(op => [op.id, op.empresa]));
-
-    // 4. Enriquece os dados de pagamento com o nome da empresa
-    let pagamentosEnriquecidos = pagamentos.map(pagamento => ({
-      ...pagamento,
-      empresa: empresaPorId.get(pagamento.id_oportunidade) || "Desconhecido",
-    }));
-
-    // 5. Aplica os filtros, se eles foram fornecidos na URL
-    if (ano && mes) {
-      const anoNum = parseInt(ano, 10);
-      const mesNum = parseInt(mes, 10);
-      pagamentosEnriquecidos = pagamentosEnriquecidos.filter(p => {
-        if (!p.data_prevista) return false;
-        const data = new Date(p.data_prevista + 'T00:00:00');
-        return data.getFullYear() === anoNum && data.getMonth() + 1 === mesNum;
-      });
-    }
-
-    if (status) {
-      pagamentosEnriquecidos = pagamentosEnriquecidos.filter(p => 
-        p.status && p.status.toLowerCase() === status.toLowerCase()
-      );
-    }
+    const infoOportunidades = new Map(oportunidades.map(op => [
+        op.id, 
+        { 
+          empresa: op.empresa, 
+          comissao: op.comissao,
+          percentual_imposto: op.percentual_imposto
+        }
+    ]));
     
-    if (empresa) {
-        pagamentosEnriquecidos = pagamentosEnriquecidos.filter(p => 
-        p.empresa && p.empresa.toLowerCase().includes(empresa.toLowerCase())
-      );
-    }
+    const totalParcelas = {};
+    pagamentos.forEach(p => {
+        const key = `${p.id_oportunidade}_${p.tipo}`;
+        if (!totalParcelas[key]) totalParcelas[key] = 0;
+        totalParcelas[key] += 1;
+    });
 
-    // 6. Retorna a lista de pagamentos (já filtrada)
+    let pagamentosEnriquecidos = pagamentos.map(pagamento => {
+      const infoOp = infoOportunidades.get(pagamento.id_oportunidade);
+      const valorBruto = parseFloat(String(pagamento.valor_bruto || "0").replace(/\./g, "").replace(",", "."));
+      const impostoPct = infoOp ? parseFloat(String(infoOp.percentual_imposto || "0").replace(",", ".")) : 0;
+      const comissaoPct = infoOp ? parseFloat(String(infoOp.comissao || "0").replace(",", ".")) : 0.20;
+      const liquidoVenda = valorBruto * (1 - impostoPct);
+      const totalKey = `${pagamento.id_oportunidade}_${pagamento.tipo}`;
+      const total = totalParcelas[totalKey] || 1;
+      const parcelaFormatada = `${pagamento.num_parcela} de ${total}`;
+      
+      return {
+        ...pagamento,
+        empresa: infoOp ? infoOp.empresa : "Desconhecido",
+        valor_bruto: valorBruto.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+        liquido_venda: liquidoVenda.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+        valor_liquido_comissao: (liquidoVenda * comissaoPct).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+        percentual_imposto: `${(impostoPct * 100).toFixed(0)}%`,
+        percentual_comissao: `${(comissaoPct * 100).toFixed(0)}%`,
+        parcela_formatada: parcelaFormatada,
+      };
+    });
+
+    // --- LÓGICA DE FILTRO ATUALIZADA E SEGURA ---
+    if (id_oportunidade) {
+        // Se um ID de oportunidade for fornecido, este filtro tem prioridade
+        pagamentosEnriquecidos = pagamentosEnriquecidos.filter(p => p.id_oportunidade === id_oportunidade);
+    } else {
+        // Senão, aplica os filtros normais da página de pagamentos
+        if (ano && mes) {
+            const anoNum = parseInt(ano, 10);
+            const mesNum = parseInt(mes, 10);
+            pagamentosEnriquecidos = pagamentosEnriquecidos.filter(p => {
+                if (!p.data_prevista) return false;
+                try {
+                    // A data já está no formato AAAA-MM-DD
+                    const data = new Date(p.data_prevista + 'T00:00:00');
+                    return data.getFullYear() === anoNum && data.getMonth() + 1 === mesNum;
+                } catch (e) { return false; }
+            });
+        }
+        if (status) {
+            pagamentosEnriquecidos = pagamentosEnriquecidos.filter(p => p.status && p.status.toLowerCase() === status.toLowerCase());
+        }
+        if (empresa) {
+            pagamentosEnriquecidos = pagamentosEnriquecidos.filter(p => p.empresa && p.empresa.toLowerCase().includes(empresa.toLowerCase()));
+        }
+    }
+    // ---------------------------------------------
+
     res.status(200).json(pagamentosEnriquecidos);
 
   } catch (error) {

@@ -12,7 +12,7 @@ export default function PagamentosPage() {
     const [pagamentos, setPagamentos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [config, setConfig] = useState({ status: [] }); // Estado para guardar as configurações de status
+    const [config, setConfig] = useState({ status: [] }); // Inicia com um array vazio para segurança
 
     const [filtros, setFiltros] = useState({
         mesAno: getAnoMes(new Date()),
@@ -22,6 +22,7 @@ export default function PagamentosPage() {
 
     const [formEdicao, setFormEdicao] = useState(null);
 
+    // Função que busca TODOS os dados necessários para a página
     const fetchData = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -43,7 +44,12 @@ export default function PagamentosPage() {
             const pagamentosData = await pagamentosRes.json();
             const configData = await configRes.json();
             
-            const sortedData = pagamentosData.sort((a, b) => new Date(b.data_prevista) - new Date(a.data_prevista));
+            // Lógica de ordenação robusta para datas no formato DD/MM/AAAA
+            const sortedData = pagamentosData.sort((a, b) => {
+                const dataA = a.data_prevista ? new Date(a.data_prevista.split('/').reverse().join('-')) : new Date(0);
+                const dataB = b.data_prevista ? new Date(b.data_prevista.split('/').reverse().join('-')) : new Date(0);
+                return dataB - dataA;
+            });
             
             setPagamentos(sortedData);
             setConfig(configData); // Salva as configurações no estado
@@ -82,9 +88,7 @@ export default function PagamentosPage() {
             if (!response.ok) throw new Error("Falha ao atualizar o pagamento.");
             
             alert("Pagamento atualizado com sucesso!");
-            setPagamentos(pagamentos.map(p => 
-                p.id_pagamento === formEdicao.id_pagamento ? formEdicao : p
-            ).sort((a, b) => new Date(b.data_prevista) - new Date(a.data_prevista)));
+            fetchData(); // A forma mais segura é re-buscar os dados para garantir consistência
             setFormEdicao(null);
         } catch (err) {
             alert(`Erro: ${err.message}`);
@@ -128,7 +132,7 @@ export default function PagamentosPage() {
                             onChange={(e) => atualizarFiltro('status', e.target.value)}
                         >
                             <option value="">Todos</option>
-                            {/* Menu de filtro agora é dinâmico */}
+                            {/* O menu de filtro agora é dinâmico e seguro */}
                             {(config.status || []).map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>
@@ -153,7 +157,7 @@ export default function PagamentosPage() {
                                 <label className="text-xs">Status</label>
                                 <select className="w-full p-2 border rounded bg-white" value={formEdicao.status || ''} onChange={(e) => handleFormChange('status', e.target.value)}>
                                     <option value="">Selecione...</option>
-                                    {/* Menu de edição agora é dinâmico */}
+                                    {/* O menu de edição agora é dinâmico e seguro */}
                                     {(config.status || []).map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </div>
