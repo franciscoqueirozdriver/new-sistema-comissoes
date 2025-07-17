@@ -1,7 +1,4 @@
 import { getSheetData } from "@/lib/googleSheetsService";
-import { getServerSession } from "next-auth/next";
-// --- CAMINHO CORRIGIDO AQUI ---
-import { authOptions } from "../auth/[...nextauth]";
 
 export const dynamic = 'force-dynamic';
 
@@ -16,32 +13,21 @@ function rowsToObjects(header, rows) {
 }
 
 export default async function handler(req, res) {
-  const session = await getServerSession(req, res, authOptions);
-
-  if (!session || !session.user || session.user.status !== 'aprovado') {
-    return res.status(401).json({ error: "Não autorizado." });
-  }
-
   if (req.method !== 'GET') {
     return res.status(405).end(`Método ${req.method} não permitido.`);
   }
 
   try {
-    let [pagamentosData, oportunidadesData] = await Promise.all([
+    const [pagamentosData, oportunidadesData] = await Promise.all([
       getSheetData("Pagamentos"),
       getSheetData("Oportunidades"),
     ]);
 
-    let pagamentos = rowsToObjects(pagamentosData.header, pagamentosData.rows);
-    let oportunidades = rowsToObjects(oportunidadesData.header, oportunidadesData.rows);
+    const pagamentos = rowsToObjects(pagamentosData.header, pagamentosData.rows);
+    const oportunidades = rowsToObjects(oportunidadesData.header, oportunidadesData.rows);
     
-    // Filtra os dados por usuário, se não for admin
-    if (session.user.role !== 'admin') {
-      const userOportunidades = oportunidades.filter(op => op.user_email === session.user.email);
-      const idsPermitidos = new Set(userOportunidades.map(op => op.id));
-      pagamentos = pagamentos.filter(p => idsPermitidos.has(p.id_oportunidade));
-    }
-    
+    // --- CORREÇÃO APLICADA AQUI ---
+    // Cria um mapa que armazena a FASE e o NOME da empresa para cada oportunidade
     const infoOportunidades = new Map(oportunidades.map(op => [
         op.id, 
         { 
@@ -61,17 +47,17 @@ export default async function handler(req, res) {
         return {
           ...p,
           empresa: infoOp ? infoOp.empresa : "Desconhecido",
-          fase_oportunidade: infoOp ? infoOp.fase : "desconhecida",
+          fase_oportunidade: infoOp ? infoOp.fase : "desconhecida", // Adiciona a fase ao pagamento
           dataPrevistaObj: dataPrevista
         };
       })
       .filter(p => {
-        // --- LÓGICA DE FILTRO CORRIGIDA ---
-        // A verificação da fase da oportunidade foi REMOVIDA para seguir a regra correta
+        // Agora, o filtro inclui a verificação da fase "ganho"
         const statusValido = p.status && p.status.toLowerCase() === 'previsto';
         const dataValida = p.dataPrevistaObj instanceof Date && !isNaN(p.dataPrevistaObj);
+        const oportunidadeGanha = p.fase_oportunidade === 'ganho';
         
-        return statusValido && dataValida && p.dataPrevistaObj < hoje;
+        return statusValido && dataValida && oportunidadeGanha && p.dataPrevistaObj < hoje;
       })
       .map(p => {
         const diffTime = Math.abs(hoje - p.dataPrevistaObj);

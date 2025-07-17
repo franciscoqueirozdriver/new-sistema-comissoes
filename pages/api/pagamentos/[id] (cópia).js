@@ -1,21 +1,24 @@
 import { getSheetData, updateSheet } from "@/lib/googleSheetsService";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]";
+// --- CAMINHO CORRIGIDO AQUI ---
+import { authOptions } from "../auth/[...nextauth]"; 
 
 export const dynamic = 'force-dynamic';
 
 const ABA_PAGAMENTOS = "Pagamentos";
 const ABA_OPORTUNIDADES = "Oportunidades";
 
+// Função para converter linhas da planilha em objetos
 const rowsToObjects = (header, rows) => {
-  return rows.map((row) => {
-    const obj = {};
-    header.forEach((key, i) => {
-      obj[key.toLowerCase().replace(/ /g, '_')] = row[i] || "";
+    return rows.map((row) => {
+        const obj = {};
+        header.forEach((key, i) => {
+            obj[key.toLowerCase().replace(/ /g, '_')] = row[i] || "";
+        });
+        return obj;
     });
-    return obj;
-  });
 };
+
 
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
@@ -64,7 +67,7 @@ export default async function handler(req, res) {
         const novasLinhas = rows.map(row => {
           if (String(row[idPagamentoIndex]) === String(idPagamento)) {
             pagamentoEncontrado = true;
-            return header.map(colName => dadosAtualizados[colName.toLowerCase().replace(/ /g, '_')] || "");
+            return header.map(colName => dadosAtualizados[colName] || "");
           }
           return row;
         });

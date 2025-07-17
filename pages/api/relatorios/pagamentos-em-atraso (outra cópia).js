@@ -35,10 +35,10 @@ export default async function handler(req, res) {
     let pagamentos = rowsToObjects(pagamentosData.header, pagamentosData.rows);
     let oportunidades = rowsToObjects(oportunidadesData.header, oportunidadesData.rows);
     
-    // Filtra os dados por usuário, se não for admin
     if (session.user.role !== 'admin') {
       const userOportunidades = oportunidades.filter(op => op.user_email === session.user.email);
       const idsPermitidos = new Set(userOportunidades.map(op => op.id));
+      oportunidades = userOportunidades;
       pagamentos = pagamentos.filter(p => idsPermitidos.has(p.id_oportunidade));
     }
     
@@ -66,12 +66,11 @@ export default async function handler(req, res) {
         };
       })
       .filter(p => {
-        // --- LÓGICA DE FILTRO CORRIGIDA ---
-        // A verificação da fase da oportunidade foi REMOVIDA para seguir a regra correta
         const statusValido = p.status && p.status.toLowerCase() === 'previsto';
         const dataValida = p.dataPrevistaObj instanceof Date && !isNaN(p.dataPrevistaObj);
+        const oportunidadeGanha = p.fase_oportunidade === 'ganho';
         
-        return statusValido && dataValida && p.dataPrevistaObj < hoje;
+        return statusValido && dataValida && oportunidadeGanha && p.dataPrevistaObj < hoje;
       })
       .map(p => {
         const diffTime = Math.abs(hoje - p.dataPrevistaObj);

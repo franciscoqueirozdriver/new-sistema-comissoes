@@ -1,87 +1,78 @@
 import { getSheetData } from "@/lib/googleSheetsService";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "./auth/[...nextauth]"; // <-- CAMINHO CORRIGIDO AQUI
 
-export const dynamic = 'force-dynamic'; // <-- LINHA ADICIONADA
+export const dynamic = 'force-dynamic';
 
-// --- Funções de Cálculo (Lógica de Negócio Isolada) ---
+// --- Funções de Utilidade ---
+const parseCurrency = (valor) => {
+    if (typeof valor === 'number') return valor;
+    if (!valor || typeof valor !== 'string') return 0;
+    const numeroLimpo = String(valor).replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.');
+    return parseFloat(numeroLimpo) || 0;
+};
 
-const parseCurrency = (value) => parseFloat(String(value || "0").replace(/\./g, "").replace(",", "."));
+const rowsToObjects = (header, rows) => {
+  return rows.map((row) => {
+    const obj = {};
+    header.forEach((key, i) => {
+      obj[key.toLowerCase().replace(/ /g, '_')] = row[i] || "";
+    });
+    return obj;
+  });
+};
 
-function calculateKpis(pagamentosData, oportunidadesData, ano, mes) {
-  const { header: pagamentosHeader, rows: pagamentosRows } = pagamentosData;
-  const { header: oportunidadesHeader, rows: oportunidadesRows } = oportunidadesData;
-
-  const idxDataPrevista = pagamentosHeader.indexOf('data_prevista');
-  const idxStatus = pagamentosHeader.indexOf('status');
-  const idxValor = pagamentosHeader.indexOf('valor_liquido_comissao');
-  const idxDataFechamento = oportunidadesHeader.indexOf('data_fechamento');
-  const idxFaseFunil = oportunidadesHeader.indexOf('fase_do_funil');
-  
-  let totalReceberMes = 0;
-  let totalReceberAno = 0;
-  let totalRecebidoAno = 0;
-
-  for (const row of pagamentosRows) {
-    const dataPrevistaStr = row[idxDataPrevista];
-    if (!dataPrevistaStr) continue;
-    const dataPrevista = new Date(dataPrevistaStr + 'T00:00:00');
-    if (isNaN(dataPrevista) || dataPrevista.getFullYear() !== ano) continue;
-    const status = String(row[idxStatus] || "").toLowerCase();
-    const valor = parseCurrency(row[idxValor]);
-    if (status === 'recebido') {
-      totalRecebidoAno += valor;
-    } else {
-      totalReceberAno += valor;
-      if (dataPrevista.getMonth() + 1 === mes) {
-        totalReceberMes += valor;
+// --- Funções de Cálculo (Mantidas do seu código validado) ---
+function calculateKpis(pagamentos, oportunidades, ano, mes) {
+  let totalReceberMes = 0, totalReceberAno = 0, totalRecebidoAno = 0;
+  for (const p of pagamentos) {
+    try {
+      const dataPrevista = new Date(p.data_prevista + 'T00:00:00');
+      if (isNaN(dataPrevista) || dataPrevista.getFullYear() !== ano) continue;
+      const valor = parseCurrency(p.valor_liquido_comissao);
+      if (String(p.status).toLowerCase() === 'recebido') {
+        totalRecebidoAno += valor;
+      } else {
+        totalReceberAno += valor;
+        if (dataPrevista.getMonth() + 1 === mes) {
+          totalReceberMes += valor;
+        }
       }
-    }
+    } catch(e) { continue; }
   }
-
-  const oportunidadesGanhas = oportunidadesRows.filter(row => String(row[idxFaseFunil]).toLowerCase() === 'ganho');
-  const vendidosAno = oportunidadesGanhas.filter(row => new Date(row[idxDataFechamento] + 'T00:00:00').getFullYear() === ano).length;
-  const vendidosMes = oportunidadesGanhas.filter(row => {
-    const dataFechamento = new Date(row[idxDataFechamento] + 'T00:00:00');
-    return dataFechamento.getFullYear() === ano && dataFechamento.getMonth() + 1 === mes;
+  const oportunidadesGanhas = oportunidades.filter(op => String(op.fase_do_funil).toLowerCase() === 'ganho');
+  const vendidosAno = oportunidadesGanhas.filter(op => new Date(op.data_fechamento + 'T00:00:00').getFullYear() === ano).length;
+  const vendidosMes = oportunidadesGanhas.filter(op => {
+    const data = new Date(op.data_fechamento + 'T00:00:00');
+    return data.getFullYear() === ano && data.getMonth() + 1 === mes;
   }).length;
-  
   return { totalReceberMes, totalReceberAno, totalRecebidoAno, vendidosMes, vendidosAno };
 }
 
-function calculateGraficoMensal(pagamentosData, ano) {
-    const { header, rows } = pagamentosData;
+function calculateGraficoMensal(pagamentos, ano) {
     const meses = Array.from({ length: 12 }, () => ({ realizado: 0, previsto: 0 }));
-    const idxDataPrevista = header.indexOf('data_prevista');
-    const idxStatus = header.indexOf('status');
-    const idxValor = header.indexOf('valor_liquido_comissao');
-
-    for (const row of rows) {
-        const dataPagamentoStr = row[idxDataPrevista];
-        if (!dataPagamentoStr) continue;
-        const dataPagamento = new Date(dataPagamentoStr + 'T00:00:00');
+    for (const p of pagamentos) {
+      try {
+        const dataPagamento = new Date(p.data_prevista + 'T00:00:00');
         if (isNaN(dataPagamento) || dataPagamento.getFullYear() !== ano) continue;
-        const status = String(row[idxStatus] || "").toLowerCase();
-        const valor = parseCurrency(row[idxValor]);
+        const valor = parseCurrency(p.valor_liquido_comissao);
         const mesIndex = dataPagamento.getMonth();
-        if (status === 'recebido') {
+        if (String(p.status).toLowerCase() === 'recebido') {
             meses[mesIndex].realizado += valor;
         } else {
             meses[mesIndex].previsto += valor;
         }
+      } catch(e) { continue; }
     }
     return meses.map((v, i) => ({ name: `${ano}-${String(i + 1).padStart(2, "0")}`, ...v }));
 }
 
-function calculatePizzaFunil(oportunidadesData, ano) {
-    const { header, rows } = oportunidadesData;
+function calculatePizzaFunil(oportunidades, ano) {
     const counts = {};
-    const idxFase = header.indexOf('fase_do_funil');
-    const idxPrevisao = header.indexOf('previsao_fechamento');
-    for (const row of rows) {
-        let fase = String(row[idxFase] || "").trim();
+    for (const op of oportunidades) {
+        let fase = String(op.fase_do_funil || "").trim();
         if (!fase) continue;
-        const dataStr = String(row[idxPrevisao] || "");
-        if (!dataStr) continue;
-        const data = new Date(dataStr + 'T00:00:00');
+        const data = new Date(op.previsao_fechamento + 'T00:00:00');
         if (!isNaN(data) && data.getFullYear() === ano) {
             const nomeFaseFormatado = fase.charAt(0).toUpperCase() + fase.slice(1).toLowerCase();
             counts[nomeFaseFormatado] = (counts[nomeFaseFormatado] || 0) + 1;
@@ -90,17 +81,12 @@ function calculatePizzaFunil(oportunidadesData, ano) {
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
 }
 
-function calculatePizzaFonte(oportunidadesData, ano) {
-    const { header, rows } = oportunidadesData;
+function calculatePizzaFonte(oportunidades, ano) {
     const counts = {};
-    const idxFonte = header.indexOf('fonte');
-    const idxPrevisao = header.indexOf('previsao_fechamento');
-    for (const row of rows) {
-        const fonte = String(row[idxFonte] || "").trim();
+    for (const op of oportunidades) {
+        const fonte = String(op.fonte || "").trim();
         if (!fonte) continue;
-        const dataStr = String(row[idxPrevisao] || "");
-        if (!dataStr) continue;
-        const data = new Date(dataStr + 'T00:00:00');
+        const data = new Date(op.previsao_fechamento + 'T00:00:00');
         if (!isNaN(data) && data.getFullYear() === ano) {
             counts[fonte] = (counts[fonte] || 0) + 1;
         }
@@ -108,55 +94,69 @@ function calculatePizzaFonte(oportunidadesData, ano) {
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
 }
 
-function calculateEventosCalendario(pagamentosData, oportunidadesData) {
-    const { header: pagHeader, rows: pagRows } = pagamentosData;
-    const { header: oppHeader, rows: oppRows } = oportunidadesData;
-    const empresaPorId = new Map(oppRows.map(row => [row[oppHeader.indexOf('id')], row[oppHeader.indexOf('empresa')]]));
+function calculateEventosCalendario(pagamentos) {
     const eventos = {};
-    const idxOppId = pagHeader.indexOf('id_oportunidade');
-    const idxData = pagHeader.indexOf('data_prevista');
-    const idxValor = pagHeader.indexOf('valor_liquido_comissao');
-    const idxStatus = pagHeader.indexOf('status');
-    for (const row of pagRows) {
-        const dataStr = row[idxData];
+    for (const p of pagamentos) {
+        const dataStr = p.data_prevista;
         if (!dataStr) continue;
-        const data = dataStr.split("T")[0];
-        const nomeEmpresa = empresaPorId.get(row[idxOppId]) || "Desconhecido";
-        const valor = parseCurrency(row[idxValor]);
-        const status = String(row[idxStatus] || "").toLowerCase();
+        const valor = parseCurrency(p.valor_liquido_comissao);
+        const status = String(p.status || "").toLowerCase();
         const cor = status === "recebido" ? "green" : "red";
         const valorFormatado = valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-        const tooltipItem = `${nomeEmpresa}: ${valorFormatado}`;
-        if (!eventos[data]) {
-            eventos[data] = { color: cor, tooltip: [tooltipItem] };
+        const tooltipItem = `${p.empresa}: ${valorFormatado}`;
+        if (!eventos[dataStr]) {
+            eventos[dataStr] = { color: cor, tooltip: [tooltipItem] };
         } else {
-            eventos[data].tooltip.push(tooltipItem);
-            if (cor === "red") eventos[data].color = "red";
+            eventos[dataStr].tooltip.push(tooltipItem);
+            if (cor === "red") eventos[dataStr].color = "red";
         }
     }
     return Object.entries(eventos).map(([date, { color, tooltip }]) => ({ date, color, tooltip }));
 }
 
-// --- Handler Principal da API ---
+// --- HANDLER DA API COM LÓGICA MULTIUSUÁRIO ---
 export default async function handler(req, res) {
+  const session = await getServerSession(req, res, authOptions);
+
+  if (!session || !session.user || session.user.status !== 'aprovado') {
+    return res.status(401).json({ error: "Não autorizado." });
+  }
+
   try {
     const { ano: anoQuery, mes: mesQuery } = req.query;
-    if (!anoQuery || !mesQuery) {
-      return res.status(400).json({ error: "Parâmetros 'ano' e 'mes' são obrigatórios." });
-    }
+    if (!anoQuery || !mesQuery) return res.status(400).json({ error: "Parâmetros 'ano' e 'mes' são obrigatórios." });
+    
     const ano = parseInt(anoQuery, 10);
     const mes = parseInt(mesQuery, 10);
 
-    const [pagamentosData, oportunidadesData] = await Promise.all([
+    let [pagamentosData, oportunidadesData] = await Promise.all([
       getSheetData("Pagamentos"),
       getSheetData("Oportunidades"),
     ]);
 
-    const kpis = calculateKpis(pagamentosData, oportunidadesData, ano, mes);
-    const graficoMensal = calculateGraficoMensal(pagamentosData, ano);
-    const pizzaFunil = calculatePizzaFunil(oportunidadesData, ano);
-    const pizzaFonte = calculatePizzaFonte(oportunidadesData, ano);
-    const eventosCalendario = calculateEventosCalendario(pagamentosData, oportunidadesData);
+    let pagamentos = rowsToObjects(pagamentosData.header, pagamentosData.rows);
+    let oportunidades = rowsToObjects(oportunidadesData.header, oportunidadesData.rows);
+
+    // --- LÓGICA DE SEGURANÇA ADICIONADA AQUI ---
+    if (session.user.role !== 'admin') {
+      const userOportunidades = oportunidades.filter(op => op.user_email === session.user.email);
+      const idsPermitidos = new Set(userOportunidades.map(op => op.id));
+      const userPagamentos = pagamentos.filter(p => idsPermitidos.has(p.id_oportunidade));
+      
+      oportunidades = userOportunidades;
+      pagamentos = userPagamentos;
+    }
+    
+    // Adiciona o nome da empresa aos pagamentos (após o filtro)
+    const empresaPorId = new Map(oportunidades.map(op => [op.id, op.empresa]));
+    pagamentos.forEach(p => { p.empresa = empresaPorId.get(p.id_oportunidade) || "Desconhecido"; });
+
+    // As funções de cálculo agora recebem apenas os dados já filtrados
+    const kpis = calculateKpis(pagamentos, oportunidades, ano, mes);
+    const graficoMensal = calculateGraficoMensal(pagamentos, ano);
+    const pizzaFunil = calculatePizzaFunil(oportunidades, ano);
+    const pizzaFonte = calculatePizzaFonte(oportunidades, ano);
+    const eventosCalendario = calculateEventosCalendario(pagamentos);
     
     res.status(200).json({
       kpis,
@@ -165,8 +165,9 @@ export default async function handler(req, res) {
       pizzaFonte,
       eventosCalendario,
     });
+
   } catch (error) {
     console.error("Erro na API /api/dashboard:", error);
-    res.status(500).json({ error: "Erro interno ao processar os dados do dashboard.", details: error.message });
+    res.status(500).json({ error: "Erro interno ao processar dados do dashboard.", details: error.message });
   }
 }

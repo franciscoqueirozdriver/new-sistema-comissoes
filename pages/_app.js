@@ -1,13 +1,16 @@
-// /pages/_app.js
+// /pages/_app.js (Versão Atualizada)
 
-import '../styles/globals.css'
-import Layout from '@/components/Layout' // Importe o componente Layout
+import { SessionProvider } from "next-auth/react";
+import '../styles/globals.css';
+import Layout from '@/components/Layout';
 
-export default function App({ Component, pageProps }) {
-  // Envolve o Componente da página atual com o Layout
+export default function App({ Component, pageProps: { session, ...pageProps } }) {
+  // Envolve o Layout com o SessionProvider
   return (
-    <Layout>
-      <Component {...pageProps} />
-    </Layout>
-  )
+    <SessionProvider session={session}>
+      <Layout>
+        <Component {...pageProps} />
+      </Layout>
+    </SessionProvider>
+  );
 }

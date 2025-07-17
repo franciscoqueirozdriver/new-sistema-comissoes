@@ -1,24 +1,11 @@
 import { getSheetData, updateSheet } from "@/lib/googleSheetsService";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "./auth/[...nextauth]";
-
-export const dynamic = 'force-dynamic';
 
 const ABA_CONFIGURACOES = "Configuracoes";
 
 export default async function handler(req, res) {
-  const session = await getServerSession(req, res, authOptions);
-
-  // --- VERIFICAÇÃO DE SESSÃO INICIAL ---
-  // Qualquer usuário logado e aprovado pode TENTAR acessar esta API.
-  if (!session || !session.user || session.user.status !== 'aprovado') {
-    return res.status(401).json({ error: "Não autorizado ou pendente de aprovação." });
-  }
-
   try {
     switch (req.method) {
       case "GET": {
-        // Qualquer usuário logado pode LER as configurações
         const { header, rows } = await getSheetData(ABA_CONFIGURACOES);
         const configData = {};
 
@@ -26,22 +13,21 @@ export default async function handler(req, res) {
             return res.status(200).json({});
         }
 
+        // Transforma as colunas da planilha em um objeto
         header.forEach((colName, colIndex) => {
           const items = rows.map(row => row[colIndex]).filter(item => item && item.trim() !== '');
+          
+          // --- A CORREÇÃO ESTÁ AQUI ---
+          // Usa um Set para garantir que a lista contenha apenas valores únicos
           const uniqueItems = [...new Set(items)];
-          configData[colName.toLowerCase().replace(/ /g, '_')] = uniqueItems;
+          
+          configData[colName] = uniqueItems;
         });
 
         return res.status(200).json(configData);
       }
 
       case "PUT": {
-        // --- VERIFICAÇÃO DE PERMISSÃO DE ADMIN ---
-        // Apenas um admin pode SALVAR as alterações
-        if (session.user.role !== 'admin') {
-            return res.status(403).json({ error: "Acesso negado. Apenas administradores podem alterar configurações." });
-        }
-        
         const newConfig = req.body;
         if (!newConfig || Object.keys(newConfig).length === 0) {
             return res.status(400).json({ error: "Nenhum dado de configuração recebido." });
@@ -49,6 +35,7 @@ export default async function handler(req, res) {
         
         const header = Object.keys(newConfig);
         const columns = Object.values(newConfig);
+
         const maxLength = Math.max(0, ...columns.map(col => col.length));
 
         const newRows = [];

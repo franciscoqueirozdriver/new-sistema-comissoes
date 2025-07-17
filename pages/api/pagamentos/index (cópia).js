@@ -1,6 +1,6 @@
 import { getSheetData } from "@/lib/googleSheetsService";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]";
+import { authOptions } from "../auth/[...nextauth]"; // <-- CAMINHO CORRIGIDO
 
 export const dynamic = 'force-dynamic';
 
@@ -38,18 +38,19 @@ export default async function handler(req, res) {
     let oportunidades = rowsToObjects(oportunidadesData.header, oportunidadesData.rows);
 
     // --- LÓGICA DE SEGURANÇA MULTIUSUÁRIO ---
+    // 1. Se o usuário não for admin, primeiro filtramos as oportunidades que pertencem a ele.
     if (session.user.role !== 'admin') {
-      const userOportunidades = oportunidades.filter(op => op.user_email === session.user.email);
-      const idsPermitidos = new Set(userOportunidades.map(op => op.id));
-      
-      // As variáveis 'oportunidades' e 'pagamentos' agora contêm APENAS os dados permitidos
-      oportunidades = userOportunidades;
-      pagamentos = pagamentos.filter(p => idsPermitidos.has(p.id_oportunidade));
+      oportunidades = oportunidades.filter(op => op.user_email === session.user.email);
     }
+    
+    // 2. Criamos um conjunto (Set) com os IDs apenas das oportunidades permitidas.
+    const idsOportunidadesPermitidas = new Set(oportunidades.map(op => op.id));
+
+    // 3. Filtramos os pagamentos, mostrando apenas aqueles cujo id_oportunidade está na lista de permissão.
+    pagamentos = pagamentos.filter(p => idsOportunidadesPermitidas.has(p.id_oportunidade));
     // --- FIM DA LÓGICA DE SEGURANÇA ---
 
 
-    // O resto do código agora trabalha com os dados já filtrados e seguros
     const infoOportunidades = new Map(oportunidades.map(op => [
         op.id, { 
           empresa: op.empresa, 

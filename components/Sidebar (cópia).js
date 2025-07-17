@@ -1,38 +1,32 @@
+// /components/Sidebar.js (Versão com autenticação forçada)
+
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSession, signIn, signOut } from "next-auth/react";
 
-// Adicionamos o novo link à lista
 const navLinks = [
   { href: "/", label: "Dashboard" },
   { href: "/oportunidades", label: "Oportunidades" },
   { href: "/pagamentos", label: "Pagamentos" },
   { href: "/metas", label: "Metas" },
   { href: "/relatorios", label: "Relatórios" },
+  { href: "#", label: "Despesas", emDesenvolvimento: true },
+  { href: "/outras-receitas", label: "Outras Receitas", emDesenvolvimento: true },
   { href: "/configuracoes", label: "Configurações" },
-  // Link que só será exibido para administradores
-  { href: "/gerenciar-usuarios", label: "Gerenciar Usuários", admin: true }, 
 ];
 
 export default function Sidebar() {
   const router = useRouter();
   const { data: session, status } = useSession();
 
-  // Filtra os links visíveis com base na role do usuário
-  const linksVisiveis = navLinks.filter(link => 
-    !link.admin || (link.admin && session?.user?.role === 'admin')
-  );
-
   return (
     <aside className="w-60 bg-violet-950 text-white p-4 space-y-6 flex flex-col justify-between">
       <div>
         <h2 className="text-xl font-bold mb-6">Sistema de Comissões</h2>
 
-        {/* O menu de navegação só aparece se o usuário estiver logado e aprovado */}
         {status === "authenticated" && session.user.status === 'aprovado' && (
           <nav className="flex flex-col gap-2">
-            {/* Mapeia apenas os links visíveis */}
-            {linksVisiveis.map((link) => (
+            {navLinks.map((link) => (
               <Link key={link.label} href={link.href || '#'} legacyBehavior>
                 <a
                   title={link.emDesenvolvimento ? "Em desenvolvimento" : ""}
@@ -54,7 +48,6 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* Seção de Login/Logout */}
       <div className="border-t border-violet-800 pt-4">
         {status === "loading" && <p className="text-xs">Carregando...</p>}
 
@@ -73,7 +66,10 @@ export default function Sidebar() {
 
         {status === "unauthenticated" && (
           <button
+            // --- ALTERAÇÃO PRINCIPAL AQUI ---
+            // Adicionamos o objeto de opções para forçar a seleção de conta
             onClick={() => signIn('google', null, { prompt: 'select_account' })}
+            // ------------------------------------
             className="w-full text-left text-sm p-2 rounded-md hover:bg-violet-700 transition-colors"
           >
             Login com Google

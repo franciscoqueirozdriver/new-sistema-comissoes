@@ -1,12 +1,11 @@
 import { getSheetData, updateSheet } from "@/lib/googleSheetsService";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "./auth/[...nextauth]"; // <-- CAMINHO CORRIGIDO AQUI
 
-export const dynamic = 'force-dynamic'; // <-- LINHA ADICIONADA
+export const dynamic = 'force-dynamic';
 
 const ABA_METAS = "Metas";
 
-/**
- * Transforma linhas de uma planilha em um array de objetos, usando o cabeçalho como chaves.
- */
 function rowsToObjects(header, rows) {
   return rows.map((row) => {
     const obj = {};
@@ -19,27 +18,50 @@ function rowsToObjects(header, rows) {
 }
 
 export default async function handler(req, res) {
+  const session = await getServerSession(req, res, authOptions);
+
+  if (!session || !session.user || session.user.status !== 'aprovado') {
+    return res.status(401).json({ error: "Não autorizado." });
+  }
+
   try {
     switch (req.method) {
       case "GET": {
         const { header, rows } = await getSheetData(ABA_METAS);
-        if (header.length === 0) {
-            return res.status(200).json([]);
+        if (header.length === 0) return res.status(200).json([]);
+        
+        let metas = rowsToObjects(header, rows);
+
+        if (session.user.role !== 'admin') {
+          metas = metas.filter(meta => meta.user_email === session.user.email);
         }
-        const metas = rowsToObjects(header, rows);
+
         return res.status(200).json(metas);
       }
 
       case "PUT": {
-        const newMetas = req.body;
-        if (!Array.isArray(newMetas) || newMetas.length === 0) {
-            await updateSheet(ABA_METAS, [["mes", "meta_implantacao", "meta_mensalidade"]]);
-            return res.status(200).json({ success: true, message: "Nenhuma meta para salvar. Planilha limpa." });
+        const metasEnviadasPeloUsuario = req.body;
+        
+        const metasParaSalvar = metasEnviadasPeloUsuario.map(meta => ({
+          ...meta,
+          user_email: session.user.email
+        }));
+        
+        const { header, rows } = await getSheetData(ABA_METAS);
+        const todasAsMetas = rowsToObjects(header, rows);
+        
+        const outrasMetas = todasAsMetas.filter(meta => meta.user_email !== session.user.email);
+        
+        const dadosFinaisParaSalvar = [...outrasMetas, ...metasParaSalvar];
+        
+        if (!Array.isArray(dadosFinaisParaSalvar) || dadosFinaisParaSalvar.length === 0) {
+            await updateSheet(ABA_METAS, [["mes", "meta_implantacao", "meta_mensalidade", "user_email"]]);
+            return res.status(200).json({ success: true, message: "Nenhuma meta para salvar." });
         }
         
-        const header = Object.keys(newMetas[0]);
-        const newRows = newMetas.map(meta => header.map(colName => meta[colName] || ""));
-        const dataToSave = [header, ...newRows];
+        const newHeader = Object.keys(dadosFinaisParaSalvar[0]);
+        const newRows = dadosFinaisParaSalvar.map(meta => newHeader.map(colName => meta[colName] || ""));
+        const dataToSave = [newHeader, ...newRows];
         
         await updateSheet(ABA_METAS, dataToSave);
 

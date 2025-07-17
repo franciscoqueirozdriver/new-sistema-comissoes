@@ -9,16 +9,15 @@ const ABA_CONFIGURACOES = "Configuracoes";
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
 
-  // --- VERIFICAÇÃO DE SESSÃO INICIAL ---
-  // Qualquer usuário logado e aprovado pode TENTAR acessar esta API.
-  if (!session || !session.user || session.user.status !== 'aprovado') {
-    return res.status(401).json({ error: "Não autorizado ou pendente de aprovação." });
+  // --- VERIFICAÇÃO DE SESSÃO E PERMISSÃO ---
+  // Apenas admins podem acessar qualquer funcionalidade desta API
+  if (!session || !session.user || session.user.role !== 'admin') {
+    return res.status(403).json({ error: "Acesso negado. Apenas administradores." });
   }
 
   try {
     switch (req.method) {
       case "GET": {
-        // Qualquer usuário logado pode LER as configurações
         const { header, rows } = await getSheetData(ABA_CONFIGURACOES);
         const configData = {};
 
@@ -36,12 +35,6 @@ export default async function handler(req, res) {
       }
 
       case "PUT": {
-        // --- VERIFICAÇÃO DE PERMISSÃO DE ADMIN ---
-        // Apenas um admin pode SALVAR as alterações
-        if (session.user.role !== 'admin') {
-            return res.status(403).json({ error: "Acesso negado. Apenas administradores podem alterar configurações." });
-        }
-        
         const newConfig = req.body;
         if (!newConfig || Object.keys(newConfig).length === 0) {
             return res.status(400).json({ error: "Nenhum dado de configuração recebido." });

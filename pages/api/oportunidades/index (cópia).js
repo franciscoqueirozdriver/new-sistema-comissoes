@@ -15,20 +15,10 @@ function rowsToObjects(header, rows) {
   });
 }
 
-function getNextId(rows, header) {
-  const idIndex = header.indexOf("id");
-  if (idIndex === -1) throw new Error("A coluna 'id' não foi encontrada na planilha de Oportunidades.");
-  
-  const maxId = Math.max(0, ...rows.map(row => parseInt(row[idIndex], 10) || 0));
-  return maxId + 1;
-}
-
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
-
-  // 1. VERIFICAÇÃO DE SESSÃO E STATUS
   if (!session || !session.user || session.user.status !== 'aprovado') {
-    return res.status(401).json({ error: "Não autorizado ou pendente de aprovação." });
+    return res.status(401).json({ error: "Não autorizado." });
   }
 
   try {
@@ -36,19 +26,9 @@ export default async function handler(req, res) {
       case "GET": {
         const { header, rows } = await getSheetData("Oportunidades");
         let oportunidades = rowsToObjects(header, rows);
-        
-        // 2. FILTRAGEM POR USUÁRIO
-        // Se o usuário não for admin, filtra para mostrar apenas suas próprias oportunidades
         if (session.user.role !== 'admin') {
-          const userEmailIndex = header.indexOf("user_email");
-          if (userEmailIndex === -1) {
-            console.error("A coluna 'user_email' não foi encontrada na aba Oportunidades.");
-            return res.status(200).json([]); // Retorna vazio por segurança
-          }
-          const userRows = rows.filter(row => row[userEmailIndex] === session.user.email);
-          oportunidades = rowsToObjects(header, userRows);
+          oportunidades = oportunidades.filter(op => op.user_email === session.user.email);
         }
-        
         return res.status(200).json(oportunidades);
       }
 
@@ -56,16 +36,13 @@ export default async function handler(req, res) {
         const novaOportunidade = req.body;
         const { header, rows } = await getSheetData("Oportunidades");
 
-        const proximoId = getNextId(rows, header);
-        novaOportunidade.id = String(proximoId);
-        
-        // 3. ADIÇÃO AUTOMÁTICA DO E-MAIL DO USUÁRIO
-        // Adiciona o e-mail do usuário logado ao novo registro
+        const proximoId = String(Date.now());
+        novaOportunidade.id = proximoId;
         novaOportunidade.user_email = session.user.email;
-        
-        // Garante que a nova linha tenha a mesma ordem de colunas do cabeçalho
-        const novaLinhaArray = header.map(colName => novaOportunidade[colName] || "");
-        
+
+        // ✅ Converte tudo para string para evitar formatação automática
+        const novaLinhaArray = header.map(colName => String(novaOportunidade[colName] || ""));
+
         await Promise.all([
             appendRows("Oportunidades", [novaLinhaArray]),
             appendRows("Pagamentos", gerarPagamentos(proximoId, novaOportunidade))
@@ -80,6 +57,7 @@ export default async function handler(req, res) {
     }
   } catch (error) {
     console.error(`Erro na API /api/oportunidades:`, error);
-    res.status(500).json({ error: "Erro ao processar a requisição.", details: error.message });
+    res.status(500).json({ error: "Erro ao processar a requisição." });
   }
 }
+
