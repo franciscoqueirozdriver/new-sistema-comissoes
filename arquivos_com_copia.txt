@@ -1,0 +1,18 @@
+./components/Sidebar (cópia).js
+./lib/googleSheetsService (cópia).js
+./lib/financeiroService (outra cópia).js
+./lib/financeiroService (cópia).js
+./lib/auth (cópia).js
+./pages/configuracoes (outra cópia).js
+./pages/configuracoes (cópia).js
+./pages/api/oportunidades/index (cópia).js
+./pages/api/oportunidades/[id] (cópia).js
+./pages/api/pagamentos/index (cópia).js
+./pages/api/pagamentos/[id] (cópia).js
+./pages/api/configuracoes (outra cópia).js
+./pages/api/configuracoes (cópia).js
+./pages/api/auth/[...nextauth] (cópia).js
+./pages/api/relatorios/metas-vs-realizado (cópia).js
+./pages/api/relatorios/pagamentos-em-atraso (cópia).js
+./pages/api/relatorios/pagamentos-em-atraso (outra cópia).js
+./pages/oportunidades (cópia).js
