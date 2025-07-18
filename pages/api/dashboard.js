@@ -1,6 +1,6 @@
 import { getSheetData } from "@/lib/googleSheetsService";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "./auth/[...nextauth]"; // <-- CAMINHO CORRIGIDO AQUI
+import { authOptions } from "./auth/[...nextauth]";
 
 export const dynamic = 'force-dynamic';
 
@@ -41,10 +41,14 @@ function calculateKpis(pagamentos, oportunidades, ano, mes) {
     } catch(e) { continue; }
   }
   const oportunidadesGanhas = oportunidades.filter(op => String(op.fase_do_funil).toLowerCase() === 'ganho');
-  const vendidosAno = oportunidadesGanhas.filter(op => new Date(op.data_fechamento + 'T00:00:00').getFullYear() === ano).length;
+  const vendidosAno = oportunidadesGanhas.filter(op => {
+      try { return new Date(op.data_fechamento + 'T00:00:00').getFullYear() === ano; } catch(e) { return false; }
+  }).length;
   const vendidosMes = oportunidadesGanhas.filter(op => {
-    const data = new Date(op.data_fechamento + 'T00:00:00');
-    return data.getFullYear() === ano && data.getMonth() + 1 === mes;
+    try {
+      const data = new Date(op.data_fechamento + 'T00:00:00');
+      return data.getFullYear() === ano && data.getMonth() + 1 === mes;
+    } catch(e) { return false; }
   }).length;
   return { totalReceberMes, totalReceberAno, totalRecebidoAno, vendidosMes, vendidosAno };
 }
@@ -72,11 +76,13 @@ function calculatePizzaFunil(oportunidades, ano) {
     for (const op of oportunidades) {
         let fase = String(op.fase_do_funil || "").trim();
         if (!fase) continue;
-        const data = new Date(op.previsao_fechamento + 'T00:00:00');
-        if (!isNaN(data) && data.getFullYear() === ano) {
-            const nomeFaseFormatado = fase.charAt(0).toUpperCase() + fase.slice(1).toLowerCase();
-            counts[nomeFaseFormatado] = (counts[nomeFaseFormatado] || 0) + 1;
-        }
+        try {
+            const data = new Date(op.previsao_fechamento + 'T00:00:00');
+            if (!isNaN(data) && data.getFullYear() === ano) {
+                const nomeFaseFormatado = fase.charAt(0).toUpperCase() + fase.slice(1).toLowerCase();
+                counts[nomeFaseFormatado] = (counts[nomeFaseFormatado] || 0) + 1;
+            }
+        } catch(e) { continue; }
     }
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
 }
@@ -86,10 +92,12 @@ function calculatePizzaFonte(oportunidades, ano) {
     for (const op of oportunidades) {
         const fonte = String(op.fonte || "").trim();
         if (!fonte) continue;
-        const data = new Date(op.previsao_fechamento + 'T00:00:00');
-        if (!isNaN(data) && data.getFullYear() === ano) {
-            counts[fonte] = (counts[fonte] || 0) + 1;
-        }
+        try {
+            const data = new Date(op.previsao_fechamento + 'T00:00:00');
+            if (!isNaN(data) && data.getFullYear() === ano) {
+                counts[fonte] = (counts[fonte] || 0) + 1;
+            }
+        } catch(e) { continue; }
     }
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
 }
@@ -114,7 +122,7 @@ function calculateEventosCalendario(pagamentos) {
     return Object.entries(eventos).map(([date, { color, tooltip }]) => ({ date, color, tooltip }));
 }
 
-// --- HANDLER DA API COM LÓGICA MULTIUSUÁRIO ---
+// --- HANDLER DA API COM LÓGICA DE VISÃO DO ADMIN ---
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
 
@@ -123,7 +131,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { ano: anoQuery, mes: mesQuery } = req.query;
+    const { ano: anoQuery, mes: mesQuery, visao } = req.query; // Pega o novo parâmetro 'visao'
     if (!anoQuery || !mesQuery) return res.status(400).json({ error: "Parâmetros 'ano' e 'mes' são obrigatórios." });
     
     const ano = parseInt(anoQuery, 10);
@@ -137,8 +145,9 @@ export default async function handler(req, res) {
     let pagamentos = rowsToObjects(pagamentosData.header, pagamentosData.rows);
     let oportunidades = rowsToObjects(oportunidadesData.header, oportunidadesData.rows);
 
-    // --- LÓGICA DE SEGURANÇA ADICIONADA AQUI ---
-    if (session.user.role !== 'admin') {
+    // --- LÓGICA DE SEGURANÇA ATUALIZADA ---
+    // A condição para filtrar agora é: se o usuário NÃO for admin, OU se ele FOR admin mas NÃO estiver pedindo a visão 'todos'.
+    if (session.user.role !== 'admin' || visao !== 'todos') {
       const userOportunidades = oportunidades.filter(op => op.user_email === session.user.email);
       const idsPermitidos = new Set(userOportunidades.map(op => op.id));
       const userPagamentos = pagamentos.filter(p => idsPermitidos.has(p.id_oportunidade));

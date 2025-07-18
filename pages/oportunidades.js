@@ -1,39 +1,52 @@
 import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { addDays, format, parseISO } from 'date-fns';
+import { useSession } from "next-auth/react"; // Importa o hook de sessão
 
-// Objeto com o estado inicial do formulário, com os valores padrão que você pediu
+// Objeto com o estado inicial do formulário
 const formInicial = {
   empresa: "",
-  fonte: "Outbound", // Valor Padrão
-  fase_do_funil: "Proposta comercial", // Valor Padrão
+  fonte: "Outbound",
+  fase_do_funil: "Proposta comercial",
   data_entrada: "",
   previsao_fechamento: "",
   valor_implantacao: "",
-  parcelas_implantacao: "2", // Valor Padrão
+  parcelas_implantacao: "2",
   valor_mensalidade: "",
-  qtde_mensalidades: "6", // Valor Padrão
-  data_fechamento: "", // Opcional
+  qtde_mensalidades: "6",
+  data_fechamento: "",
   data_primeiro_pagamento_mensal: "",
   percentual_imposto: "0,19",
   comissao: "0,20",
-  observacao: "", // Opcional
+  observacao: "",
 };
 
 export default function OportunidadesPage() {
+  const { data: session } = useSession(); // Pega a sessão atual do usuário
   const [config, setConfig] = useState({ fonte: [], fase_do_funil: [] });
   const [form, setForm] = useState(formInicial);
   const [lista, setLista] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // --- NOVO ESTADO PARA O FILTRO DE VISÃO ---
+  const [visao, setVisao] = useState('propria'); // 'propria' ou 'todos'
+
   const fetchData = useCallback(async () => {
+    if (!session) return; // Não faz nada se a sessão ainda não carregou
+
     setLoading(true);
     setError(null);
     try {
+      // Adiciona o parâmetro de visão à chamada da API de oportunidades
+      const params = new URLSearchParams();
+      if (session.user.role === 'admin' && visao === 'todos') {
+        params.append('visao', 'todos');
+      }
+
       const [configRes, listaRes] = await Promise.all([
         fetch("/api/configuracoes"),
-        fetch("/api/oportunidades"),
+        fetch(`/api/oportunidades?${params.toString()}`),
       ]);
       if (!configRes.ok || !listaRes.ok) throw new Error("Falha ao buscar dados do servidor.");
       const configData = await configRes.json();
@@ -45,39 +58,32 @@ export default function OportunidadesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [session, visao]); // Adiciona 'visao' e 'session' às dependências
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-  // --- FUNÇÃO handleSalvar COM VALIDAÇÃO DE CAMPOS OBRIGATÓRIOS ---
   const handleSalvar = async () => {
-    // Lista de campos obrigatórios
     const camposObrigatorios = [
-      'empresa', 'fonte', 'fase_do_funil', 'data_entrada', 
-      'previsao_fechamento', 'valor_implantacao', 'parcelas_implantacao',
-      'valor_mensalidade', 'qtde_mensalidades', 'data_primeiro_pagamento_mensal',
-      'percentual_imposto', 'comissao'
+      'empresa', 'fonte', 'fase_do_funil', 'data_entrada', 'previsao_fechamento',
+      'valor_implantacao', 'parcelas_implantacao', 'valor_mensalidade',
+      'qtde_mensalidades', 'data_primeiro_pagamento_mensal', 'percentual_imposto', 'comissao'
     ];
-
-    // Verifica se algum campo obrigatório está vazio
     for (const campo of camposObrigatorios) {
       if (!form[campo]) {
-        // Formata o nome do campo para exibição no alerta
         const nomeCampoFormatado = campo.replace(/_/g, ' ').replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
         alert(`O campo "${nomeCampoFormatado}" é obrigatório.`);
-        return; // Para a execução se encontrar um campo vazio
+        return;
       }
     }
-
     const isEditing = !!form.id;
     const method = isEditing ? "PUT" : "POST";
     const endpoint = isEditing ? `/api/oportunidades/${form.id}` : "/api/oportunidades";
-
     const dadosParaSalvar = { ...form,
       percentual_imposto: String(form.percentual_imposto).replace('.', ','),
       comissao: String(form.comissao).replace('.', ',')
     };
-
     try {
       const response = await fetch(endpoint, {
         method: method, headers: { "Content-Type": "application/json" },
@@ -94,7 +100,7 @@ export default function OportunidadesPage() {
       alert(`Erro: ${err.message}`);
     }
   };
-  
+
   const handleDelete = async (id) => {
     if (!confirm("Tem certeza que deseja excluir esta oportunidade?")) return;
     try {
@@ -114,7 +120,7 @@ export default function OportunidadesPage() {
     setForm(oportunidade);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-  
+
   const atualizarCampo = (campo, valor) => {
     const formAtualizado = { ...form, [campo]: valor };
     if (campo === 'data_entrada' && valor) {
@@ -132,17 +138,31 @@ export default function OportunidadesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">Cadastro de Oportunidades</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-gray-900">Cadastro de Oportunidades</h1>
+        {session?.user?.role === 'admin' && (
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Visão:</label>
+            <select
+              value={visao}
+              onChange={(e) => setVisao(e.target.value)}
+              className="p-2 border rounded bg-white"
+            >
+              <option value="propria">Minhas Oportunidades</option>
+              <option value="todos">Todas as Oportunidades</option>
+            </select>
+          </div>
+        )}
+      </div>
+
       <Card>
         <CardContent className="p-6 space-y-4">
           <h2 className="text-xl font-semibold">{form.id ? `Editando Oportunidade ID: ${form.id}` : 'Nova Oportunidade'}</h2>
-          
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="text-xs font-medium text-gray-600">Empresa</label>
               <input placeholder="Nome da Empresa" className="w-full p-2 border rounded" value={form.empresa || ""} onChange={e => atualizarCampo("empresa", e.target.value)} />
             </div>
-            
             <div>
               <label className="text-xs font-medium text-gray-600">Fonte</label>
               <select className="w-full p-2 border rounded bg-white" value={form.fonte || ""} onChange={e => atualizarCampo("fonte", e.target.value)}>
@@ -150,7 +170,6 @@ export default function OportunidadesPage() {
                 {(config.fonte || []).map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
-            
             <div>
               <label className="text-xs font-medium text-gray-600">Fase do Funil</label>
               <select className="w-full p-2 border rounded bg-white" value={form.fase_do_funil || ""} onChange={e => atualizarCampo("fase_do_funil", e.target.value)}>
@@ -158,63 +177,51 @@ export default function OportunidadesPage() {
                 {(config.fase_do_funil || []).map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
-            
             <div>
               <label className="text-xs font-medium text-gray-600">Data de Entrada</label>
               <input type="date" className="w-full p-2 border rounded" value={form.data_entrada || ""} onChange={e => atualizarCampo("data_entrada", e.target.value)} />
             </div>
-
             <div>
               <label className="text-xs font-medium text-gray-600">Previsão de Fechamento</label>
               <input type="date" className="w-full p-2 border rounded" value={form.previsao_fechamento || ""} onChange={e => atualizarCampo("previsao_fechamento", e.target.value)} />
             </div>
-
             <div>
               <label className="text-xs font-medium text-gray-600">Valor Implantação</label>
               <input placeholder="Ex: 10000,00" type="text" className="w-full p-2 border rounded" value={form.valor_implantacao || ""} onChange={e => atualizarCampo("valor_implantacao", e.target.value)} />
             </div>
-
             <div>
               <label className="text-xs font-medium text-gray-600">Parcelas Implantação</label>
               <input type="number" className="w-full p-2 border rounded" value={form.parcelas_implantacao || ""} onChange={e => atualizarCampo("parcelas_implantacao", e.target.value)} />
             </div>
-
             <div>
               <label className="text-xs font-medium text-gray-600">Valor Mensalidade</label>
               <input placeholder="Ex: 500,00" type="text" className="w-full p-2 border rounded" value={form.valor_mensalidade || ""} onChange={e => atualizarCampo("valor_mensalidade", e.target.value)} />
             </div>
-
             <div>
               <label className="text-xs font-medium text-gray-600">Qtde Mensalidades</label>
               <input type="number" className="w-full p-2 border rounded" value={form.qtde_mensalidades || ""} onChange={e => atualizarCampo("qtde_mensalidades", e.target.value)} />
             </div>
-            
             <div>
               <label className="text-xs font-medium text-gray-600">Data de Fechamento</label>
               <input type="date" className="w-full p-2 border rounded" value={form.data_fechamento || ""} onChange={e => atualizarCampo("data_fechamento", e.target.value)} />
             </div>
-
             <div>
               <label className="text-xs font-medium text-gray-600">Data 1º Pag. Mensal</label>
               <input type="date" className="w-full p-2 border rounded" value={form.data_primeiro_pagamento_mensal || ""} onChange={e => atualizarCampo("data_primeiro_pagamento_mensal", e.target.value)} />
             </div>
-            
             <div>
               <label className="text-xs font-medium text-gray-600">% Imposto</label>
               <input placeholder="Ex: 0,19" type="text" className="w-full p-2 border rounded" value={form.percentual_imposto || ""} onChange={e => atualizarCampo("percentual_imposto", e.target.value)} />
             </div>
-            
             <div>
               <label className="text-xs font-medium text-gray-600">% Comissão</label>
               <input placeholder="Ex: 0,20" type="text" className="w-full p-2 border rounded" value={form.comissao || ""} onChange={e => atualizarCampo("comissao", e.target.value)} />
             </div>
           </div>
-          
           <div>
             <label className="text-xs font-medium text-gray-600">Observação</label>
             <textarea className="w-full p-2 border rounded" value={form.observacao || ""} onChange={e => atualizarCampo("observacao", e.target.value)} />
           </div>
-
           <div className="flex justify-end gap-2 mt-4">
             <button onClick={() => setForm(formInicial)} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Limpar</button>
             <button onClick={handleSalvar} className="bg-violet-600 text-white px-4 py-2 rounded hover:bg-violet-700">

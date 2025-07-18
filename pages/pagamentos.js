@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useSession } from "next-auth/react";
 
 // Função para formatar a data no padrão AAAA-MM para o input de mês
 const getAnoMes = (date) => {
@@ -9,21 +10,24 @@ const getAnoMes = (date) => {
 };
 
 export default function PagamentosPage() {
+    const { data: session, status: sessionStatus } = useSession();
     const [pagamentos, setPagamentos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [config, setConfig] = useState({ status: [] }); // Inicia com um array vazio para segurança
+    const [config, setConfig] = useState({ status: [] }); // Estado para guardar as configurações
 
     const [filtros, setFiltros] = useState({
         mesAno: getAnoMes(new Date()),
         empresa: "",
         status: "",
+        visao: 'propria' // Novo estado para o filtro de visão do admin
     });
 
     const [formEdicao, setFormEdicao] = useState(null);
 
-    // Função que busca TODOS os dados necessários para a página
     const fetchData = useCallback(async () => {
+        if (!session) return; // Não busca dados se não houver sessão
+
         setLoading(true);
         setError(null);
 
@@ -32,8 +36,12 @@ export default function PagamentosPage() {
         if (filtros.empresa) params.append('empresa', filtros.empresa);
         if (filtros.status) params.append('status', filtros.status);
 
+        // Adiciona o filtro de visão para a API
+        if (session.user.role === 'admin' && filtros.visao === 'todos') {
+            params.append('visao', 'todos');
+        }
+
         try {
-            // Busca os pagamentos e as configurações em paralelo
             const [pagamentosRes, configRes] = await Promise.all([
                 fetch(`/api/pagamentos?${params.toString()}`),
                 fetch('/api/configuracoes')
@@ -44,21 +52,21 @@ export default function PagamentosPage() {
             const pagamentosData = await pagamentosRes.json();
             const configData = await configRes.json();
             
-            // Lógica de ordenação robusta para datas no formato DD/MM/AAAA
+            // Lógica de ordenação robusta para datas no formato AAAA-MM-DD
             const sortedData = pagamentosData.sort((a, b) => {
-                const dataA = a.data_prevista ? new Date(a.data_prevista.split('/').reverse().join('-')) : new Date(0);
-                const dataB = b.data_prevista ? new Date(b.data_prevista.split('/').reverse().join('-')) : new Date(0);
+                const dataA = a.data_prevista ? new Date(a.data_prevista) : new Date(0);
+                const dataB = b.data_prevista ? new Date(b.data_prevista) : new Date(0);
                 return dataB - dataA;
             });
             
             setPagamentos(sortedData);
-            setConfig(configData); // Salva as configurações no estado
+            setConfig(configData);
         } catch (err) {
             setError(err.message);
         } finally {
             setLoading(false);
         }
-    }, [filtros]);
+    }, [filtros, session]);
 
     useEffect(() => {
         fetchData();
@@ -88,7 +96,7 @@ export default function PagamentosPage() {
             if (!response.ok) throw new Error("Falha ao atualizar o pagamento.");
             
             alert("Pagamento atualizado com sucesso!");
-            fetchData(); // A forma mais segura é re-buscar os dados para garantir consistência
+            fetchData(); // Re-busca os dados para garantir consistência
             setFormEdicao(null);
         } catch (err) {
             alert(`Erro: ${err.message}`);
@@ -99,9 +107,14 @@ export default function PagamentosPage() {
         setFiltros(prevFiltros => ({...prevFiltros, [campo]: valor}));
     };
 
+    if (sessionStatus === "loading") return <div className="p-6 text-center">Carregando...</div>;
+    if (sessionStatus === "unauthenticated") return <div className="p-6 text-center">Por favor, faça o login para continuar.</div>;
+    
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-gray-900">Gerenciamento de Pagamentos</h1>
+            <div className="flex justify-between items-center">
+                <h1 className="text-3xl font-bold text-gray-900">Gerenciamento de Pagamentos</h1>
+            </div>
             
             <Card>
                 <CardContent className="p-4 flex flex-wrap items-end gap-4">
@@ -132,14 +145,25 @@ export default function PagamentosPage() {
                             onChange={(e) => atualizarFiltro('status', e.target.value)}
                         >
                             <option value="">Todos</option>
-                            {/* O menu de filtro agora é dinâmico e seguro */}
                             {(config.status || []).map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>
+                    {session.user.role === 'admin' && (
+                        <div>
+                            <label className="text-sm font-medium">Visão</label>
+                            <select
+                                className="w-full p-2 border rounded bg-white"
+                                value={filtros.visao}
+                                onChange={(e) => atualizarFiltro('visao', e.target.value)}
+                            >
+                                <option value="propria">Meus Dados</option>
+                                <option value="todos">Todos os Dados</option>
+                            </select>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
-            {/* --- FORMULÁRIO DE EDIÇÃO SIMPLIFICADO --- */}
             {formEdicao && (
                 <Card className="bg-blue-50 border-blue-200">
                     <CardContent className="p-4">
@@ -157,7 +181,6 @@ export default function PagamentosPage() {
                                 <label className="text-xs">Status</label>
                                 <select className="w-full p-2 border rounded bg-white" value={formEdicao.status || ''} onChange={(e) => handleFormChange('status', e.target.value)}>
                                     <option value="">Selecione...</option>
-                                    {/* O menu de edição agora é dinâmico e seguro */}
                                     {(config.status || []).map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </div>

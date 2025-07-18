@@ -26,7 +26,6 @@ function getNextId(rows, header) {
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
 
-  // 1. VERIFICAÇÃO DE SESSÃO E STATUS
   if (!session || !session.user || session.user.status !== 'aprovado') {
     return res.status(401).json({ error: "Não autorizado ou pendente de aprovação." });
   }
@@ -34,16 +33,17 @@ export default async function handler(req, res) {
   try {
     switch (req.method) {
       case "GET": {
+        const { visao } = req.query; // Pega o novo parâmetro 'visao'
         const { header, rows } = await getSheetData("Oportunidades");
         let oportunidades = rowsToObjects(header, rows);
         
-        // 2. FILTRAGEM POR USUÁRIO
-        // Se o usuário não for admin, filtra para mostrar apenas suas próprias oportunidades
-        if (session.user.role !== 'admin') {
+        // --- LÓGICA DE SEGURANÇA ATUALIZADA ---
+        // A condição para filtrar agora é: se o usuário NÃO for admin, OU se ele FOR admin mas NÃO estiver pedindo a visão 'todos'.
+        if (session.user.role !== 'admin' || visao !== 'todos') {
           const userEmailIndex = header.indexOf("user_email");
           if (userEmailIndex === -1) {
             console.error("A coluna 'user_email' não foi encontrada na aba Oportunidades.");
-            return res.status(200).json([]); // Retorna vazio por segurança
+            return res.status(200).json([]);
           }
           const userRows = rows.filter(row => row[userEmailIndex] === session.user.email);
           oportunidades = rowsToObjects(header, userRows);
@@ -58,12 +58,8 @@ export default async function handler(req, res) {
 
         const proximoId = getNextId(rows, header);
         novaOportunidade.id = String(proximoId);
-        
-        // 3. ADIÇÃO AUTOMÁTICA DO E-MAIL DO USUÁRIO
-        // Adiciona o e-mail do usuário logado ao novo registro
         novaOportunidade.user_email = session.user.email;
         
-        // Garante que a nova linha tenha a mesma ordem de colunas do cabeçalho
         const novaLinhaArray = header.map(colName => novaOportunidade[colName] || "");
         
         await Promise.all([

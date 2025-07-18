@@ -1,7 +1,6 @@
 import { getSheetData } from "@/lib/googleSheetsService";
 import { getServerSession } from "next-auth/next";
-// --- CAMINHO CORRIGIDO AQUI ---
-import { authOptions } from "../auth/[...nextauth]";
+import { authOptions } from "../auth/[...nextauth]"; // Ajuste o caminho para a API de autenticação
 
 export const dynamic = 'force-dynamic';
 
@@ -36,17 +35,19 @@ export default async function handler(req, res) {
     ]);
 
     // --- LÓGICA DE SEGURANÇA MULTIUSUÁRIO ---
+    // Filtra as oportunidades se o usuário não for admin
     if (session.user.role !== 'admin') {
       const userEmailIndex = oportunidadesData.header.indexOf("user_email");
       if (userEmailIndex !== -1) {
         oportunidadesData.rows = oportunidadesData.rows.filter(row => row[userEmailIndex] === session.user.email);
       } else {
-        oportunidadesData.rows = [];
+        oportunidadesData.rows = []; // Retorna vazio por segurança se a coluna não existir
       }
     }
     // --- FIM DA LÓGICA DE SEGURANÇA ---
 
 
+    // 1. Processa as Metas (consideradas globais)
     const metasPorMes = new Map();
     metasData.rows.forEach(row => {
       const [mes, anoMeta] = row[0].split('/');
@@ -58,6 +59,7 @@ export default async function handler(req, res) {
       }
     });
 
+    // 2. Processa os Valores Realizados (agora com os dados já filtrados)
     const realizadoPorMes = Array.from({ length: 12 }, () => ({
       realizado_implantacao: 0,
       realizado_mensalidade: 0,
@@ -81,6 +83,7 @@ export default async function handler(req, res) {
       }
     });
 
+    // 3. Monta o relatório final
     const relatorioFinal = [];
     for (let i = 1; i <= 12; i++) {
       const meta = metasPorMes.get(i) || { meta_implantacao: 0, meta_mensalidade: 0 };

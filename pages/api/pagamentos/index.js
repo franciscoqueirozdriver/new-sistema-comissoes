@@ -27,7 +27,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { ano, mes, empresa, status, id_oportunidade } = req.query;
+    const { ano, mes, empresa, status, id_oportunidade, visao } = req.query;
 
     const [pagamentosData, oportunidadesData] = await Promise.all([
       getSheetData("Pagamentos"),
@@ -37,19 +37,15 @@ export default async function handler(req, res) {
     let pagamentos = rowsToObjects(pagamentosData.header, pagamentosData.rows);
     let oportunidades = rowsToObjects(oportunidadesData.header, oportunidadesData.rows);
 
-    // --- LÓGICA DE SEGURANÇA MULTIUSUÁRIO ---
-    if (session.user.role !== 'admin') {
+    // --- LÓGICA DE SEGURANÇA ATUALIZADA ---
+    if (session.user.role !== 'admin' || visao !== 'todos') {
       const userOportunidades = oportunidades.filter(op => op.user_email === session.user.email);
       const idsPermitidos = new Set(userOportunidades.map(op => op.id));
-      
-      // As variáveis 'oportunidades' e 'pagamentos' agora contêm APENAS os dados permitidos
       oportunidades = userOportunidades;
       pagamentos = pagamentos.filter(p => idsPermitidos.has(p.id_oportunidade));
     }
     // --- FIM DA LÓGICA DE SEGURANÇA ---
 
-
-    // O resto do código agora trabalha com os dados já filtrados e seguros
     const infoOportunidades = new Map(oportunidades.map(op => [
         op.id, { 
           empresa: op.empresa, 

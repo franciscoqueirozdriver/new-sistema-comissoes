@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useSession } from "next-auth/react"; // Importa o hook de sessão
 
 // Funções de utilidade
 const parseCurrency = (valor) => {
@@ -14,6 +15,7 @@ const formatCurrency = (valor) => {
 };
 
 export default function DetalhamentoOportunidadePage() {
+    const { data: session } = useSession(); // Pega a sessão atual do usuário
     const [oportunidades, setOportunidades] = useState([]);
     const [selectedOppId, setSelectedOppId] = useState('');
     
@@ -22,24 +24,38 @@ export default function DetalhamentoOportunidadePage() {
     const [generating, setGenerating] = useState(false);
     const [error, setError] = useState(null);
 
+    // --- NOVO ESTADO PARA O FILTRO DE VISÃO ---
+    const [visao, setVisao] = useState('propria');
+
     // Busca a lista de oportunidades para preencher o menu de seleção
-    useEffect(() => {
-        const fetchOportunidades = async () => {
-            setLoading(true);
-            try {
-                const response = await fetch('/api/oportunidades');
-                if (!response.ok) throw new Error("Falha ao buscar lista de oportunidades.");
-                const data = await response.json();
-                setOportunidades(data);
-            } catch (err) {
-                console.error(err);
-                setError("Não foi possível carregar a lista de oportunidades.");
-            } finally {
-                setLoading(false);
+    const fetchOportunidades = useCallback(async () => {
+        if (!session) return; // Não busca se a sessão não estiver pronta
+
+        setLoading(true);
+        setError(null);
+        try {
+            // Adiciona o parâmetro de visão à chamada da API
+            const params = new URLSearchParams();
+            if (session.user.role === 'admin' && visao === 'todos') {
+                params.append('visao', 'todos');
             }
-        };
+
+            const response = await fetch(`/api/oportunidades?${params.toString()}`);
+            if (!response.ok) throw new Error("Falha ao buscar lista de oportunidades.");
+            const data = await response.json();
+            setOportunidades(data);
+        } catch (err) {
+            console.error(err);
+            setError("Não foi possível carregar a lista de oportunidades.");
+        } finally {
+            setLoading(false);
+        }
+    }, [session, visao]); // Adiciona 'visao' e 'session' às dependências
+
+    useEffect(() => {
         fetchOportunidades();
-    }, []);
+    }, [fetchOportunidades]);
+
 
     const handleGenerateReport = async () => {
         if (!selectedOppId) {
@@ -51,17 +67,24 @@ export default function DetalhamentoOportunidadePage() {
         setReportData(null);
 
         try {
+            // --- CORREÇÃO APLICADA AQUI ---
+            // Adiciona o parâmetro de visão na chamada para a API de pagamentos
+            const params = new URLSearchParams({ id_oportunidade: selectedOppId });
+            if (session.user.role === 'admin' && visao === 'todos') {
+                params.append('visao', 'todos');
+            }
+            
             const [oportunidadeRes, pagamentosRes] = await Promise.all([
                 fetch(`/api/oportunidades/${selectedOppId}`),
-                fetch(`/api/pagamentos?id_oportunidade=${selectedOppId}`)
+                fetch(`/api/pagamentos?${params.toString()}`)
             ]);
-
+            // ------------------------------------
+            
             if (!oportunidadeRes.ok || !pagamentosRes.ok) throw new Error("Falha ao buscar dados do relatório.");
             
             const oportunidadeData = await oportunidadeRes.json();
             const pagamentosData = await pagamentosRes.json();
             
-            // --- Lógica de Totalização ---
             const totais = pagamentosData.reduce((acc, p) => {
                 const valorBruto = parseCurrency(p.valor_bruto);
                 const liquidoVenda = parseCurrency(p.liquido_venda);
@@ -96,6 +119,24 @@ export default function DetalhamentoOportunidadePage() {
             
             <Card className="print-hide">
                 <CardContent className="p-4 flex flex-wrap items-end gap-4">
+                    {/* --- SELETOR DE VISÃO PARA ADMINS --- */}
+                    {session?.user?.role === 'admin' && (
+                        <div>
+                            <label className="text-sm font-medium">Visão</label>
+                            <select
+                                value={visao}
+                                onChange={(e) => {
+                                    setVisao(e.target.value);
+                                    setSelectedOppId(''); // Limpa a seleção ao mudar a visão
+                                    setReportData(null); // Limpa o relatório gerado
+                                }}
+                                className="w-full p-2 border rounded bg-white"
+                            >
+                                <option value="propria">Minhas Oportunidades</option>
+                                <option value="todos">Todas as Oportunidades</option>
+                            </select>
+                        </div>
+                    )}
                     <div className="flex-grow">
                         <label className="text-sm font-medium">Selecione a Oportunidade</label>
                         <select 
@@ -159,9 +200,6 @@ export default function DetalhamentoOportunidadePage() {
                                     </tr>
                                 ))}
                             </tbody>
-                            
-                            {/* --- CORREÇÃO APLICADA AQUI --- */}
-                            {/* O rodapé da tabela só será renderizado se reportData.totais existir */}
                             {reportData.totais && (
                                 <tfoot className="font-bold bg-gray-50">
                                     <tr>

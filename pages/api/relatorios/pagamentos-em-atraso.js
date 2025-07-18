@@ -1,6 +1,5 @@
 import { getSheetData } from "@/lib/googleSheetsService";
 import { getServerSession } from "next-auth/next";
-// --- CAMINHO CORRIGIDO AQUI ---
 import { authOptions } from "../auth/[...nextauth]";
 
 export const dynamic = 'force-dynamic';
@@ -27,6 +26,8 @@ export default async function handler(req, res) {
   }
 
   try {
+    const { visao } = req.query; // Pega o novo parâmetro 'visao'
+
     let [pagamentosData, oportunidadesData] = await Promise.all([
       getSheetData("Pagamentos"),
       getSheetData("Oportunidades"),
@@ -35,12 +36,17 @@ export default async function handler(req, res) {
     let pagamentos = rowsToObjects(pagamentosData.header, pagamentosData.rows);
     let oportunidades = rowsToObjects(oportunidadesData.header, oportunidadesData.rows);
     
-    // Filtra os dados por usuário, se não for admin
-    if (session.user.role !== 'admin') {
+    // --- LÓGICA DE SEGURANÇA ATUALIZADA ---
+    // A condição para filtrar agora é: se o usuário NÃO for admin, OU se ele FOR admin mas NÃO estiver pedindo a visão 'todos'.
+    if (session.user.role !== 'admin' || visao !== 'todos') {
       const userOportunidades = oportunidades.filter(op => op.user_email === session.user.email);
       const idsPermitidos = new Set(userOportunidades.map(op => op.id));
+      
+      // Filtra os pagamentos e as oportunidades antes de qualquer cálculo
+      oportunidades = userOportunidades;
       pagamentos = pagamentos.filter(p => idsPermitidos.has(p.id_oportunidade));
     }
+    // --- FIM DA LÓGICA DE SEGURANÇA ---
     
     const infoOportunidades = new Map(oportunidades.map(op => [
         op.id, 
@@ -66,12 +72,11 @@ export default async function handler(req, res) {
         };
       })
       .filter(p => {
-        // --- LÓGICA DE FILTRO CORRIGIDA ---
-        // A verificação da fase da oportunidade foi REMOVIDA para seguir a regra correta
         const statusValido = p.status && p.status.toLowerCase() === 'previsto';
         const dataValida = p.dataPrevistaObj instanceof Date && !isNaN(p.dataPrevistaObj);
+        const oportunidadeGanha = p.fase_oportunidade === 'ganho';
         
-        return statusValido && dataValida && p.dataPrevistaObj < hoje;
+        return statusValido && dataValida && oportunidadeGanha && p.dataPrevistaObj < hoje;
       })
       .map(p => {
         const diffTime = Math.abs(hoje - p.dataPrevistaObj);

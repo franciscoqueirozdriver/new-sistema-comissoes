@@ -1,6 +1,6 @@
 import { getSheetData, updateSheet } from "@/lib/googleSheetsService";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "./auth/[...nextauth]"; // <-- CAMINHO CORRIGIDO AQUI
+import { authOptions } from "./auth/[...nextauth]";
 
 export const dynamic = 'force-dynamic';
 
@@ -27,14 +27,18 @@ export default async function handler(req, res) {
   try {
     switch (req.method) {
       case "GET": {
+        const { visao } = req.query; // Pega o novo parâmetro 'visao'
         const { header, rows } = await getSheetData(ABA_METAS);
         if (header.length === 0) return res.status(200).json([]);
         
         let metas = rowsToObjects(header, rows);
 
-        if (session.user.role !== 'admin') {
+        // --- LÓGICA DE SEGURANÇA ATUALIZADA ---
+        // A condição para filtrar agora é: se o usuário NÃO for admin, OU se ele FOR admin mas NÃO estiver pedindo a visão 'todos'.
+        if (session.user.role !== 'admin' || visao !== 'todos') {
           metas = metas.filter(meta => meta.user_email === session.user.email);
         }
+        // ------------------------------------
 
         return res.status(200).json(metas);
       }

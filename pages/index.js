@@ -15,6 +15,9 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
   const [displayedMonth, setDisplayedMonth] = useState(new Date());
 
+  // --- NOVO ESTADO PARA O FILTRO DE VISÃO ---
+  const [visao, setVisao] = useState('propria'); // 'propria' ou 'todos'
+
   useEffect(() => {
     if (sessionStatus === "authenticated" && session?.user?.status === 'aprovado') {
       const fetchData = async () => {
@@ -23,7 +26,14 @@ export default function Dashboard() {
         try {
           const ano = displayedMonth.getFullYear();
           const mes = displayedMonth.getMonth() + 1;
-          const response = await fetch(`/api/dashboard?ano=${ano}&mes=${mes}`);
+          
+          // Adiciona o parâmetro de visão à chamada da API se necessário
+          const params = new URLSearchParams({ ano, mes });
+          if (session.user.role === 'admin' && visao === 'todos') {
+            params.append('visao', 'todos');
+          }
+
+          const response = await fetch(`/api/dashboard?${params.toString()}`);
           if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || "Falha ao carregar os dados.");
@@ -40,7 +50,7 @@ export default function Dashboard() {
     } else if (sessionStatus !== "loading") {
       setLoading(false);
     }
-  }, [displayedMonth, session, sessionStatus]);
+  }, [displayedMonth, session, sessionStatus, visao]); // Adiciona 'visao' às dependências
 
   const anoAtual = displayedMonth.getFullYear();
 
@@ -81,7 +91,24 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">Dashboard {anoAtual}</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-gray-900">Dashboard {anoAtual}</h1>
+        
+        {/* --- SELETOR DE VISÃO PARA ADMINS --- */}
+        {session?.user?.role === 'admin' && (
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Visão:</label>
+            <select
+              value={visao}
+              onChange={(e) => setVisao(e.target.value)}
+              className="p-2 border rounded bg-white"
+            >
+              <option value="propria">Meus Dados</option>
+              <option value="todos">Todos os Dados</option>
+            </select>
+          </div>
+        )}
+      </div>
       
       {kpis && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">

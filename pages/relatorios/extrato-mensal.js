@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useSession } from "next-auth/react";
 
 const getAnoMes = (date) => {
     const ano = date.getFullYear();
@@ -7,19 +8,43 @@ const getAnoMes = (date) => {
     return `${ano}-${mes}`;
 };
 
+// --- FUNÇÕES DE UTILIDADE ---
+const parseCurrency = (valor) => {
+    if (typeof valor === 'number') return valor;
+    if (!valor || typeof valor !== 'string') return 0;
+    const numeroLimpo = String(valor).replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.');
+    return parseFloat(numeroLimpo) || 0;
+};
+
+const formatCurrency = (valor) => {
+    return (valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+};
+// ----------------------------
+
 export default function ExtratoMensalPage() {
+    const { data: session } = useSession();
     const [reportData, setReportData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [filtroMes, setFiltroMes] = useState(getAnoMes(new Date()));
+    const [visao, setVisao] = useState('propria');
+    
+    // Novo estado para guardar os totais
+    const [totais, setTotais] = useState(null);
 
-    const handleGenerateReport = async () => {
+    const handleGenerateReport = useCallback(async () => {
+        if (!session) return;
         setLoading(true);
         setError(null);
         setReportData(null);
+        setTotais(null); // Limpa os totais antigos
 
         const [ano, mes] = filtroMes.split('-');
         const params = new URLSearchParams({ ano, mes });
+
+        if (session.user.role === 'admin' && visao === 'todos') {
+            params.append('visao', 'todos');
+        }
 
         try {
             const response = await fetch(`/api/pagamentos?${params.toString()}`);
@@ -27,18 +52,27 @@ export default function ExtratoMensalPage() {
             
             const data = await response.json();
             const sortedData = data.sort((a, b) => {
-                const dataA = a.data_prevista.split('/').reverse().join('-');
-                const dataB = b.data_prevista.split('/').reverse().join('-');
+                const dataA = a.data_prevista ? new Date(a.data_prevista.split('/').reverse().join('-')) : new Date(0);
+                const dataB = b.data_prevista ? new Date(b.data_prevista.split('/').reverse().join('-')) : new Date(0);
                 return new Date(dataA) - new Date(dataB);
             });
 
+            // --- LÓGICA DE TOTALIZAÇÃO ADICIONADA AQUI ---
+            const totaisCalculados = sortedData.reduce((acc, p) => {
+                acc.totalBruto += parseCurrency(p.valor_bruto);
+                acc.totalLiquidoVenda += parseCurrency(p.liquido_venda);
+                acc.totalComissao += parseCurrency(p.valor_liquido_comissao);
+                return acc;
+            }, { totalBruto: 0, totalLiquidoVenda: 0, totalComissao: 0 });
+            
+            setTotais(totaisCalculados);
             setReportData(sortedData);
         } catch (err) {
             setError(err.message);
         } finally {
             setLoading(false);
         }
-    };
+    }, [filtroMes, session, visao]);
 
     return (
         <div className="space-y-6" id="pagina-relatorio">
@@ -58,6 +92,21 @@ export default function ExtratoMensalPage() {
                             onChange={(e) => setFiltroMes(e.target.value)}
                         />
                     </div>
+                    
+                    {session?.user?.role === 'admin' && (
+                        <div>
+                            <label className="text-sm font-medium">Visão</label>
+                            <select
+                                value={visao}
+                                onChange={(e) => setVisao(e.target.value)}
+                                className="w-full p-2 border rounded bg-white"
+                            >
+                                <option value="propria">Meus Dados</option>
+                                <option value="todos">Todos os Dados</option>
+                            </select>
+                        </div>
+                    )}
+
                     <button 
                         onClick={handleGenerateReport} 
                         className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
@@ -104,9 +153,7 @@ export default function ExtratoMensalPage() {
                                             <td className="p-2 border">{p.data_prevista}</td>
                                             <td className="p-2 border">{p.empresa}</td>
                                             <td className="p-2 border">{p.tipo}</td>
-                                            {/* --- A MUDANÇA ESTÁ AQUI --- */}
                                             <td className="p-2 border text-center">{p.parcela_formatada}</td>
-                                            {/* --------------------------- */}
                                             <td className="p-2 border">{p.valor_bruto}</td>
                                             <td className="p-2 border text-center">{p.percentual_imposto}</td>
                                             <td className="p-2 border">{p.liquido_venda}</td>
@@ -117,6 +164,20 @@ export default function ExtratoMensalPage() {
                                         </tr>
                                     ))}
                                 </tbody>
+                                {/* --- RODAPÉ DA TABELA COM OS TOTAIS --- */}
+                                {totais && (
+                                    <tfoot className="font-bold bg-gray-50">
+                                        <tr>
+                                            <td colSpan="4" className="p-2 border text-right">TOTAIS</td>
+                                            <td className="p-2 border">{formatCurrency(totais.totalBruto)}</td>
+                                            <td className="p-2 border"></td> {/* Coluna % Imposto */}
+                                            <td className="p-2 border">{formatCurrency(totais.totalLiquidoVenda)}</td>
+                                            <td className="p-2 border"></td> {/* Coluna % Comissão */}
+                                            <td className="p-2 border">{formatCurrency(totais.totalComissao)}</td>
+                                            <td colSpan="2" className="p-2 border"></td>
+                                        </tr>
+                                    </tfoot>
+                                )}
                             </table>
                         </div>
                          <div className="flex justify-end mt-6 print-hide">
