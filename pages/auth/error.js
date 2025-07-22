@@ -28,11 +28,14 @@ export default function AuthErrorPage() {
   return (
     <div className="flex items-center justify-center min-h-full p-4 bg-gray-100">
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl text-center">
-            {isPendingApproval ? "Acesso Pendente" : "Erro de Autenticação"}
-          </-CardTitle>
-        </CardHeader>
+
+<CardHeader>
+  <CardTitle className="text-2xl text-center">
+    {isPendingApproval ? "Acesso Pendente" : "Erro de Autenticação"}
+  </CardTitle>
+</CardHeader>
+
+
         <CardContent className="text-center">
           {isPendingApproval 
             ? <AcessoPendente /> 

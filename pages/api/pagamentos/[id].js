@@ -1,3 +1,5 @@
+// /pages/api/pagamentos/[id].js
+
 import { getSheetData, updateSheet } from "@/lib/googleSheetsService";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";

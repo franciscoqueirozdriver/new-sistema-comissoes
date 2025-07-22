@@ -26,7 +26,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { visao } = req.query;
+    const { visao } = req.query; // Pega o novo parâmetro 'visao'
 
     let [pagamentosData, oportunidadesData] = await Promise.all([
       getSheetData("Pagamentos"),
@@ -37,23 +37,19 @@ export default async function handler(req, res) {
     let oportunidades = rowsToObjects(oportunidadesData.header, oportunidadesData.rows);
     
     // --- LÓGICA DE SEGURANÇA ATUALIZADA ---
+    // A condição para filtrar agora é: se o usuário NÃO for admin, OU se ele FOR admin mas NÃO estiver pedindo a visão 'todos'.
     if (session.user.role !== 'admin' || visao !== 'todos') {
       const userOportunidades = oportunidades.filter(op => op.user_email === session.user.email);
-      
-      // CORREÇÃO: Garante que os IDs no Set sejam sempre strings.
-      const idsPermitidos = new Set(userOportunidades.map(op => String(op.id)));
+      const idsPermitidos = new Set(userOportunidades.map(op => op.id));
       
       // Filtra os pagamentos e as oportunidades antes de qualquer cálculo
       oportunidades = userOportunidades;
-      
-      // CORREÇÃO: Garante que o ID do pagamento seja string ao verificar a permissão.
-      pagamentos = pagamentos.filter(p => idsPermitidos.has(String(p.id_oportunidade)));
+      pagamentos = pagamentos.filter(p => idsPermitidos.has(p.id_oportunidade));
     }
     // --- FIM DA LÓGICA DE SEGURANÇA ---
     
     const infoOportunidades = new Map(oportunidades.map(op => [
-        // CORREÇÃO: Garante que a chave do Map seja sempre uma string.
-        String(op.id), 
+        op.id, 
         { 
             empresa: op.empresa, 
             fase: String(op.fase_do_funil || "").toLowerCase() 
@@ -66,9 +62,7 @@ export default async function handler(req, res) {
     const pagamentosAtrasados = pagamentos
       .map(p => {
         const dataPrevista = p.data_prevista ? new Date(p.data_prevista + 'T00:00:00') : null;
-        
-        // CORREÇÃO: Garante que a busca no Map use uma string.
-        const infoOp = infoOportunidades.get(String(p.id_oportunidade));
+        const infoOp = infoOportunidades.get(p.id_oportunidade);
         
         return {
           ...p,
@@ -85,9 +79,7 @@ export default async function handler(req, res) {
         return statusValido && dataValida && oportunidadeGanha && p.dataPrevistaObj < hoje;
       })
       .map(p => {
-        // A diferença em milissegundos
-        const diffTime = hoje.getTime() - p.dataPrevistaObj.getTime();
-        // Converte para dias e arredonda para cima, garantindo que 1h de atraso conte como 1 dia.
+        const diffTime = Math.abs(hoje - p.dataPrevistaObj);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         
         return { ...p, dias_em_atraso: diffDays };

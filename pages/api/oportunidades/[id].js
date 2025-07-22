@@ -1,3 +1,5 @@
+// /pages/api/oportunidades/[id].js
+
 import { getSheetData, updateSheet } from "@/lib/googleSheetsService";
 import { gerarPagamentos } from "@/lib/financeiroService";
 import { getServerSession } from "next-auth/next";
