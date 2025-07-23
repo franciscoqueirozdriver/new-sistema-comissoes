@@ -10,56 +10,6 @@ export const dynamic = 'force-dynamic';
 const ABA_OPORTUNIDADES = "Oportunidades";
 const ABA_PAGAMENTOS = "Pagamentos";
 
-function parseCurrency(valor) {
-  if (typeof valor === 'number') return valor;
-  if (!valor || typeof valor !== 'string') return 0;
-  const numeroLimpo = String(valor).replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.');
-  return parseFloat(numeroLimpo) || 0;
-}
-
-function parsePercentage(valor) {
-  if (typeof valor === 'number') return valor;
-  if (!valor || typeof valor !== 'string') return 0;
-  const numeroLimpo = String(valor).replace(',', '.');
-  return parseFloat(numeroLimpo) || 0;
-}
-
-function formatForSheet(num) {
-  return String(Number(num).toFixed(2)).replace('.', ',');
-}
-
-function pagamentosToRows(idOportunidade, pagamentos, dadosOportunidade) {
-  const percImp = parsePercentage(dadosOportunidade.percentual_imposto);
-  const percCom = parsePercentage(dadosOportunidade.comissao);
-  const userEmail = dadosOportunidade.user_email || '';
-
-  let nextId = Date.now();
-  const contadores = {};
-
-  return pagamentos.map(p => {
-    const val = parseCurrency(p.valor_bruto);
-    const liquido = val * percCom * (1 - percImp);
-    const tipo = p.tipo;
-    if (!contadores[tipo]) contadores[tipo] = 1;
-    const numParcela = contadores[tipo]++;
-
-    return [
-      String(nextId++),
-      idOportunidade,
-      tipo,
-      String(numParcela),
-      formatForSheet(val),
-      formatForSheet(percImp),
-      formatForSheet(liquido),
-      p.data_prevista,
-      p.data_recebida || '',
-      p.status || 'Previsto',
-      userEmail
-    ];
-  });
-}
-
-
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
   if (!session || !session.user || session.user.status !== 'aprovado') {
@@ -92,10 +42,6 @@ export default async function handler(req, res) {
 
       case "PUT": {
         const dadosAtualizados = req.body;
-        
-                const pagamentosCustom = dadosAtualizados.pagamentos || null;
-        delete dadosAtualizados.pagamentos;
-        
         dadosAtualizados.user_email = oportunidadeRow[userEmailIndex];
         
         const rowIndexToUpdate = oppRows.findIndex(row => String(row[idIndex]) === String(id));
@@ -106,11 +52,7 @@ export default async function handler(req, res) {
         
         const pagamentosData = await getSheetData(ABA_PAGAMENTOS);
         const pagamentosRestantes = pagamentosData.rows.filter(row => String(row[pagamentosData.header.indexOf("id_oportunidade")]) !== String(id));
-       
-
-        const novosPagamentos = pagamentosCustom
-          ? pagamentosToRows(id, pagamentosCustom, dadosAtualizados)
-          : gerarPagamentos(id, dadosAtualizados);        
+        const novosPagamentos = gerarPagamentos(id, dadosAtualizados);
         
         await Promise.all([
             updateSheet(ABA_OPORTUNIDADES, [oppHeader, ...novasLinhasOp]),

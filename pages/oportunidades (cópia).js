@@ -3,18 +3,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { addDays, format, parseISO } from 'date-fns';
 import { useSession } from "next-auth/react"; // Importa o hook de sessão
 
-const parseCurrency = (valor) => {
-  if (typeof valor === 'number') return valor;
-  if (!valor || typeof valor !== 'string') return 0;
-  const numeroLimpo = String(valor).replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.');
-  return parseFloat(numeroLimpo) || 0;
-};
-
-const formatCurrency = (valor) => {
-  return (valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-};
-
-
 // Objeto com o estado inicial do formulário
 const formInicial = {
   empresa: "",
@@ -40,9 +28,6 @@ export default function OportunidadesPage() {
   const [lista, setLista] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [pagamentos, setPagamentos] = useState([]);
-  const [loadingPagamentos, setLoadingPagamentos] = useState(false);
-  const [totalImplantacao, setTotalImplantacao] = useState(0);
 
   // --- NOVO ESTADO PARA O FILTRO DE VISÃO ---
   const [visao, setVisao] = useState('propria'); // 'propria' ou 'todos'
@@ -74,75 +59,6 @@ export default function OportunidadesPage() {
       setLoading(false);
     }
   }, [session, visao]); // Adiciona 'visao' e 'session' às dependências
-const fetchPagamentos = async (idOpp) => {
-    setLoadingPagamentos(true);
-    try {
-      const res = await fetch(`/api/pagamentos?id_oportunidade=${idOpp}`);
-      if (res.ok) {
-        const data = await res.json();
-        setPagamentos(data.map(p => ({
-          ...p,
-          valor_bruto: parseCurrency(p.valor_bruto),
-          fixed: false
-        })));
-        const total = data
-          .filter(p => p.tipo === 'Implantação')
-          .reduce((acc, p) => acc + parseCurrency(p.valor_bruto), 0);
-        setTotalImplantacao(total);
-      } else {
-        setPagamentos([]);
-        setTotalImplantacao(0);
-      }
-    } catch (e) {
-      setPagamentos([]);
-      setTotalImplantacao(0);
-    } finally {
-      setLoadingPagamentos(false);
-    }
-  };
-
-  const redistributeImplantacao = (pagamentosLista) => {
-    const implantacoes = pagamentosLista.filter(p => p.tipo === 'Implantação');
-    if (implantacoes.length === 0) return pagamentosLista;
-
-    const fixedTotal = implantacoes
-      .filter(p => p.fixed)
-      .reduce((acc, p) => acc + parseFloat(p.valor_bruto || 0), 0);
-
-    const restantes = implantacoes.filter(p => !p.fixed);
-
-    const restanteTotal = totalImplantacao - fixedTotal;
-    const valorCada = restantes.length > 0 ? restanteTotal / restantes.length : 0;
-
-    let idx = 0;
-    return pagamentosLista.map(p => {
-      if (p.tipo !== 'Implantação') return p;
-      if (p.fixed) return p;
-      return { ...p, valor_bruto: Number(valorCada.toFixed(2)), fixed: false };
-    });
-  };
-
-  const handleValorChange = (index, valor) => {
-    setPagamentos(prev => {
-      const novos = [...prev];
-      const num = parseCurrency(valor);
-      novos[index] = { ...novos[index], valor_bruto: num, fixed: true };
-      return redistributeImplantacao(novos);
-    });
-  };
-
-  const handleExcluirPagamento = (index) => {
-    setPagamentos(prev => {
-      const novos = prev.filter((_, i) => i !== index);
-      const implantacoes = novos.filter(p => p.tipo === 'Implantação');
-      if (implantacoes.length === 0) {
-        alert('É obrigatório manter ao menos uma parcela de implantação.');
-        return prev;
-      }
-      return redistributeImplantacao(novos);
-    });
-  };
-  
 
   useEffect(() => {
     fetchData();
@@ -168,17 +84,6 @@ const fetchPagamentos = async (idOpp) => {
       percentual_imposto: String(form.percentual_imposto).replace('.', ','),
       comissao: String(form.comissao).replace('.', ',')
     };
-    
-    if (isEditing) {
-      dadosParaSalvar.pagamentos = pagamentos.map(p => ({
-        tipo: p.tipo,
-        valor_bruto: p.valor_bruto,
-        data_prevista: p.data_prevista,
-        data_recebida: p.data_recebida,
-        status: p.status
-      }));
-    }    
-    
     try {
       const response = await fetch(endpoint, {
         method: method, headers: { "Content-Type": "application/json" },
@@ -190,7 +95,6 @@ const fetchPagamentos = async (idOpp) => {
       }
       alert(`Oportunidade ${isEditing ? 'atualizada' : 'salva'} com sucesso!`);
       setForm(formInicial);
-      setPagamentos([]);      
       fetchData();
     } catch (err) {
       alert(`Erro: ${err.message}`);
@@ -214,7 +118,6 @@ const fetchPagamentos = async (idOpp) => {
 
   const handleEditar = (oportunidade) => {
     setForm(oportunidade);
-    fetchPagamentos(oportunidade.id);    
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -319,47 +222,8 @@ const fetchPagamentos = async (idOpp) => {
             <label className="text-xs font-medium text-gray-600">Observação</label>
             <textarea className="w-full p-2 border rounded" value={form.observacao || ""} onChange={e => atualizarCampo("observacao", e.target.value)} />
           </div>
-          {form.id && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">Pagamentos</h3>
-              {loadingPagamentos ? (
-                <p>Carregando pagamentos...</p>
-              ) : (
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="p-2 border">Tipo</th>
-                      <th className="p-2 border">Parcela</th>
-                      <th className="p-2 border">Valor</th>
-                      <th className="p-2 border">Data Prevista</th>
-                      <th className="p-2 border text-center">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagamentos.map((p, idx) => (
-                      <tr key={idx} className="border-b">
-                        <td className="p-2 border">{p.tipo}</td>
-                        <td className="p-2 border">{p.num_parcela}</td>
-                        <td className="p-2 border">
-                          <input type="number" className="w-full p-1 border rounded" value={p.valor_bruto} onChange={e => handleValorChange(idx, e.target.value)} />
-                        </td>
-                        <td className="p-2 border">{p.data_prevista}</td>
-                        <td className="p-2 border text-center">
-                          <button onClick={() => handleExcluirPagamento(idx)} className="text-red-600 hover:underline">Excluir</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-              <p className="text-xs text-gray-500">Total Implantação: {formatCurrency(totalImplantacao)}</p>
-            </div>
-          )}
-         
           <div className="flex justify-end gap-2 mt-4">
-          
-            <button onClick={() => { setForm(formInicial); setPagamentos([]); }} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Limpar</button>
-
+            <button onClick={() => setForm(formInicial)} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Limpar</button>
             <button onClick={handleSalvar} className="bg-violet-600 text-white px-4 py-2 rounded hover:bg-violet-700">
               {form.id ? 'Atualizar Oportunidade' : 'Salvar Nova Oportunidade'}
             </button>
