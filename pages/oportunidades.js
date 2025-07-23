@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { addDays, format, parseISO } from 'date-fns';
+import { addDays, addMonths, format, parseISO } from 'date-fns';
 import { useSession } from "next-auth/react"; // Importa o hook de sessão
 
 const parseCurrency = (valor) => {
@@ -130,6 +130,36 @@ const fetchPagamentos = async (idOpp) => {
       return redistributeImplantacao(novos);
     });
   };
+
+  const handleDataPrevistaChange = (index, valor) => {
+    setPagamentos(prev => {
+      const novos = [...prev];
+ const pagamento = novos[index];
+      novos[index] = { ...pagamento, data_prevista: valor };
+
+      if (valor && pagamento.tipo) {
+        let baseDate;
+        try {
+          baseDate = parseISO(valor);
+        } catch (e) {
+          baseDate = null;
+        }
+
+        if (baseDate) {
+          for (let i = index + 1; i < novos.length; i++) {
+            if (novos[i].tipo === pagamento.tipo) {
+              baseDate = addMonths(baseDate, 1);
+              novos[i] = { ...novos[i], data_prevista: format(baseDate, 'yyyy-MM-dd') };
+            }
+          }
+        }
+      }
+
+      return novos;
+    });
+  };
+
+
 
   const handleExcluirPagamento = (index) => {
     setPagamentos(prev => {
@@ -343,7 +373,16 @@ const fetchPagamentos = async (idOpp) => {
                         <td className="p-2 border">
                           <input type="number" className="w-full p-1 border rounded" value={p.valor_bruto} onChange={e => handleValorChange(idx, e.target.value)} />
                         </td>
-                        <td className="p-2 border">{p.data_prevista}</td>
+                        
+                        <td className="p-2 border">
+                          <input
+                            type="date"
+                            className="w-full p-1 border rounded"
+                            value={p.data_prevista || ''}
+                            onChange={e => handleDataPrevistaChange(idx, e.target.value)}
+                          />
+                        </td>                        
+                        
                         <td className="p-2 border text-center">
                           <button onClick={() => handleExcluirPagamento(idx)} className="text-red-600 hover:underline">Excluir</button>
                         </td>
