@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { parseISO, format as formatDate } from 'date-fns';
 import { Card, CardContent } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { Calendar } from "@/components/ui/calendarNew"; // Verifique se o nome do arquivo é 'calendarNew' ou 'calendar'
@@ -14,6 +15,19 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [displayedMonth, setDisplayedMonth] = useState(new Date());
+  
+    const handleDataInputChange = (e) => {
+    const valor = e.target.value;
+    try {
+      const novaData = parseISO(valor);
+      if (!isNaN(novaData)) {
+        setDisplayedMonth(novaData);
+      }
+    } catch (_) {
+      // ignore invalid date
+    }
+  };
+
 
   // --- NOVO ESTADO PARA O FILTRO DE VISÃO ---
   const [visao, setVisao] = useState('propria'); // 'propria' ou 'todos'
@@ -139,6 +153,15 @@ export default function Dashboard() {
         <Card>
             <CardContent className="p-4">
                 <h2 className="font-semibold text-lg">Calendário de Pagamentos</h2>
+                <div className="mb-2">
+                  <input
+                    type="date"
+                    className="p-1 border rounded"
+                    value={formatDate(displayedMonth, 'yyyy-MM-dd')}
+                    onChange={handleDataInputChange}
+                  />
+                </div>                
+                
                 <Calendar
                     month={displayedMonth}
                     onMonthChange={setDisplayedMonth}
