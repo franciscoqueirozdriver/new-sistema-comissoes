@@ -22,5 +22,6 @@ Este é um sistema web construído com Next.js, Tailwind CSS e Google Sheets com
 
 **1. Clonar o Repositório:**
 ```bash
-git clone [https://github.com/franciscoqueirozdriver/new-sistema-comissoes.git](https://github.com/franciscoqueirozdriver/new-sistema-comissoes.git)
+git clone https://github.com/franciscoqueirozdriver/new-sistema-comissoes.git
 cd new-sistema-comissoes
+

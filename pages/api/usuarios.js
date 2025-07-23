@@ -1,6 +1,7 @@
-import { getSheetData, updateSheet, appendRows } from "@/lib/googleSheetsService"; // <-- appendRows ADICIONADO AQUI
+import { getSheetData, updateSheet, appendRows } from "@/lib/googleSheetsService";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
+import { sendInvitationEmail } from "@/lib/emailService";
 
 export const dynamic = 'force-dynamic';
 
@@ -74,6 +75,14 @@ export default async function handler(req, res) {
         // Adiciona o novo usuário com status 'convidado'
         const newUserRow = [email, nome, role, 'convidado'];
         await appendRows(ABA_USUARIOS, [newUserRow]);
+        
+
+        try {
+          await sendInvitationEmail({ to: email, name: nome });
+        } catch (err) {
+          console.error('Erro ao enviar e-mail de convite:', err);
+        }
+        
         
         return res.status(201).json({ success: true, message: `Convite enviado para ${email}.` });
       }
