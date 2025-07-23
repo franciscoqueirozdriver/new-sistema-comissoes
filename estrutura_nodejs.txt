@@ -1,4 +1,4 @@
-📂 Estrutura do projeto Node.js – ter 22 jul 2025 18:36:48 -03
+📂 Estrutura do projeto Node.js – qua 23 jul 2025 18:36:08 -03
 Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
 ──────────────────────────────
 📁 next-tailwind-sistema-comissoes
@@ -23,6 +23,106 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
           );
         }
     ──────────────────────────────
+    📄 RelatorioDSRTable.js
+    └── Conteúdo:
+        import { calcularDSRporPagamento, formatCurrency } from '@/lib/calculoDSRporPagamento';
+        
+        export default function RelatorioDSRTable({
+          pagamentos,
+          mostrar,
+          usarComSabado,
+          diasComSabado,
+          diasSemSabado,
+          diasDescanso,
+          compacto = false,
+          ocultarData = false,
+          ocultarStatus = false,
+          ocultarTipo = false
+        }) {
+          const linhas = pagamentos.map(p => ({
+            row: p,
+            calc: calcularDSRporPagamento(p, {
+              usarComSabado,
+              diasComSabado,
+              diasSemSabado,
+              diasDescanso
+            })
+          }));
+        
+          const hideData = compacto || ocultarData;
+          const hideStatus = compacto || ocultarStatus;
+          const hideTipo = compacto || ocultarTipo;
+        
+          const totais = linhas.reduce((acc, l) => {
+            acc.comissaoBruta += l.calc.comissaoBruta;
+            acc.comissaoLiquida += l.calc.comissaoLiquida;
+            acc.dsrBruto += l.calc.dsrBruto;
+            acc.dsrLiquido += l.calc.dsrLiquido;
+            return acc;
+          }, {
+            comissaoBruta: 0,
+            comissaoLiquida: 0,
+            dsrBruto: 0,
+            dsrLiquido: 0
+          });
+        
+          const baseColSpan = 8 - [hideData, hideTipo].filter(Boolean).length;
+        
+          return (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-gray-100">
+                  <tr>
+                    {!hideData && <th className="p-2 border">Data de Pagamento</th>}
+                    <th className="p-2 border">Empresa</th>
+                    {!hideTipo && <th className="p-2 border">Tipo</th>}
+                    <th className="p-2 border">Parcela</th>
+                    <th className="p-2 border">Valor Bruto</th>
+                    <th className="p-2 border">% Imposto</th>
+                    <th className="p-2 border">Líquido da Venda</th>
+                    <th className="p-2 border">% Comissão</th>
+                    {mostrar.comissaoBruto && <th className="p-2 border">Comissão Bruta</th>}
+                    {mostrar.comissaoLiquido && <th className="p-2 border">Comissão Líquida</th>}
+                    {mostrar.dsrBruto && <th className="p-2 border">DSR Bruto</th>}
+                    {mostrar.dsrLiquido && <th className="p-2 border">DSR Líquido</th>}
+                    {!hideStatus && <th className="p-2 border">Status</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {linhas.map(({ row, calc }) => (
+                    <tr key={row.id_pagamento} className="border-b">
+                      {!hideData && <td className="p-2 border">{row.data_prevista}</td>}
+                      <td className="p-2 border">{row.empresa}</td>
+                      {!hideTipo && <td className="p-2 border">{row.tipo}</td>}
+                      <td className="p-2 border">{row.parcela_formatada || row.num_parcela}</td>
+                      <td className="p-2 border">{row.valor_bruto}</td>
+                      <td className="p-2 border">{row.percentual_imposto}</td>
+                      <td className="p-2 border">{formatCurrency(calc.liquidoVenda)}</td>
+                      <td className="p-2 border">{row.percentual_comissao}</td>
+                      {mostrar.comissaoBruto && <td className="p-2 border">{formatCurrency(calc.comissaoBruta)}</td>}
+                      {mostrar.comissaoLiquido && <td className="p-2 border">{formatCurrency(calc.comissaoLiquida)}</td>}
+                      {mostrar.dsrBruto && <td className="p-2 border">{formatCurrency(calc.dsrBruto)}</td>}
+                      {mostrar.dsrLiquido && <td className="p-2 border">{formatCurrency(calc.dsrLiquido)}</td>}
+                      {!hideStatus && <td className="p-2 border">{row.status}</td>}
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="font-bold bg-gray-50">
+                  <tr>
+                    <td colSpan={baseColSpan} className="p-2 border text-right">Totais</td>
+                    {mostrar.comissaoBruto && <td className="p-2 border">{formatCurrency(totais.comissaoBruta)}</td>}
+                    {mostrar.comissaoLiquido && <td className="p-2 border">{formatCurrency(totais.comissaoLiquida)}</td>}
+                    {mostrar.dsrBruto && <td className="p-2 border">{formatCurrency(totais.dsrBruto)}</td>}
+                    {mostrar.dsrLiquido && <td className="p-2 border">{formatCurrency(totais.dsrLiquido)}</td>}
+                    {!hideStatus && <td className="p-2 border"></td>}
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          );
+        }
+        
+    ──────────────────────────────
     📄 Sidebar.js
     └── Conteúdo:
         import Link from "next/link";
@@ -38,8 +138,11 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
           { href: "/relatorios", label: "Relatórios" },
           { href: "/configuracoes", label: "Configurações" },
           // Link que só será exibido para administradores
-          { href: "/gerenciar-usuarios", label: "Gerenciar Usuários", admin: true }, 
+          { href: "/gerenciar-usuarios", label: "Gerenciar Usuários", admin: true },
+          { href: "/calcular-dsr", label: "Calcular DSR", admin: true }, 
         ];
+        
+        
         
         export default function Sidebar() {
           const router = useRouter();
@@ -335,6 +438,93 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
         
         export { auth };
     ──────────────────────────────
+    📄 calculoDSRporPagamento.js
+    └── Conteúdo:
+        export function parseCurrency(valor) {
+          if (typeof valor === 'number') return valor;
+          if (!valor || typeof valor !== 'string') return 0;
+          const numeroLimpo = valor
+            .replace(/R\$\s?/, '')
+            .replace(/\./g, '')
+            .replace(',', '.');
+          return parseFloat(numeroLimpo) || 0;
+        }
+        
+        export function parsePercentage(valor) {
+          if (typeof valor === 'number') return valor;
+          if (!valor || typeof valor !== 'string') return 0;
+          const numeroLimpo = valor.replace('%', '').replace(',', '.');
+          return parseFloat(numeroLimpo) || 0;
+        }
+        
+        export function formatCurrency(valor) {
+          return (valor || 0).toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+          });
+        }
+        
+        export function calcularDSRporPagamento(row, {
+          usarComSabado,
+          diasComSabado,
+          diasSemSabado,
+          diasDescanso
+        }) {
+          const valorBruto = parseCurrency(row.valor_bruto);
+          const percentualImposto = parsePercentage(row.percentual_imposto);
+          const percentualComissao = parsePercentage(row.percentual_comissao);
+        
+          const liquidoVenda = valorBruto * (1 - percentualImposto / 100);
+          const comissaoBruta = valorBruto * (percentualComissao / 100);
+          const comissaoLiquida = liquidoVenda * (percentualComissao / 100);
+        
+          const divisor = usarComSabado ? diasComSabado : diasSemSabado;
+          const dsrBruto = divisor ? (comissaoBruta / divisor) * diasDescanso : 0;
+          const dsrLiquido = divisor ? (comissaoLiquida / divisor) * diasDescanso : 0;
+        
+          return {
+            liquidoVenda,
+            comissaoBruta,
+            comissaoLiquida,
+            dsrBruto,
+            dsrLiquido
+          };
+        }
+    ──────────────────────────────
+    📄 emailService.js
+    └── Conteúdo:
+        import nodemailer from 'nodemailer';
+        
+        export async function sendInvitationEmail({ to, name }) {
+          const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+              user: process.env.GMAIL_USER,
+              pass: process.env.GMAIL_PASS,
+            },
+          });
+        
+          const fromName = process.env.EMAIL_SENDER_NAME || 'Sistema de Comissões';
+          const fromAddress = process.env.EMAIL_SENDER_ADDRESS || process.env.GMAIL_USER;
+        
+          const mailOptions = {
+            from: `"${fromName}" <${fromAddress}>`,
+            to,
+            subject: 'Convite para acesso ao Sistema de Gestão de Comissões',
+            text: `Olá, ${name}.
+        \nEspero que esteja tudo bem.
+        \nEstou entrando em contato para lhe dar acesso ao nosso novo Sistema de Gestão de Comissões. Através dele, você poderá cadastrar e acompanhar suas oportunidades e pagamentos de forma simples e organizada.
+        \nPara ativar seu acesso, por favor, siga os passos abaixo:
+        \nAcesse o link do sistema: https://minhascomissoesweb.vercel.app
+        \nFaça o login: Na tela inicial, clique no botão "Login com Google" e utilize a sua conta de e-mail: ${to}. (É muito importante que você use este e-mail específico, pois é o que foi liberado no sistema).
+        \nApós o primeiro login, seu acesso estará ativo e você já poderá começar a cadastrar suas oportunidades.
+        \nQualquer dúvida, estou à sua disposição.
+        \nAbraço,`,
+          };
+        
+          await transporter.sendMail(mailOptions);
+        }
+    ──────────────────────────────
     📄 financeiroService.js
     └── Conteúdo:
         const parseCurrency = (valor) => {
@@ -397,7 +587,9 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
           // --- MENSALIDADE ---
           if (valorMensalidade > 0 && qtdMensalidades > 0) {
             const valorLiquido = valorMensalidade * percentualComissao * (1 - percentualImposto);
-            const offsetMeses = parcelasImplantacao || 0;
+            // Mensalidades devem iniciar no mesmo mês da primeira parcela de implantação
+            // portanto não aplicamos nenhum deslocamento baseado nas parcelas de implantação
+            const offsetMeses = 0;
         
             for (let i = 0; i < qtdMensalidades; i++) {
               const dataPrevista = new Date(dataBase);
@@ -519,6 +711,62 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
             }
         }
     ──────────────────────────────
+    📄 useDiasUteis.js
+    └── Conteúdo:
+        import { useState, useEffect } from 'react';
+        
+        function calcularDias(ano, mes, feriados = []) {
+          const feriadosSet = new Set(feriados);
+          const diasNoMes = new Date(ano, mes, 0).getDate();
+          let uteisSemSabado = 0;
+          let uteisComSabado = 0;
+          let descanso = 0;
+          for (let d = 1; d <= diasNoMes; d++) {
+            const data = new Date(ano, mes - 1, d);
+            const day = data.getDay();
+            const dateStr = data.toISOString().split('T')[0];
+            const isFeriado = feriadosSet.has(dateStr);
+            if (day === 0 || isFeriado) {
+              descanso += 1;
+              continue;
+            }
+            if (day === 6) {
+              uteisComSabado += 1;
+            } else {
+              uteisSemSabado += 1;
+              uteisComSabado += 1;
+            }
+          }
+          return { diasSemSabado: uteisSemSabado, diasComSabado: uteisComSabado, diasDescanso: descanso };
+        }
+        
+        export default function useDiasUteis(mesAno, considerarFeriados, uf, municipio) {
+          const [dados, setDados] = useState({ diasSemSabado: 0, diasComSabado: 0, diasDescanso: 0 });
+        
+          useEffect(() => {
+            let isMounted = true;
+            async function calcular() {
+              const [ano, mes] = mesAno.split('-').map(Number);
+              let feriados = [];
+              if (considerarFeriados && uf && municipio) {
+                try {
+                  const resp = await fetch(`https://api.calendario.com.br/?json=true&ano=${ano}&estado=${uf}&cidade=${municipio}`);
+                  if (resp.ok) {
+                    const json = await resp.json();
+                    feriados = (json || []).map(f => f.date);
+                  }
+                } catch (_) { /* ignore */ }
+              }
+              const result = calcularDias(ano, mes, feriados);
+              if (isMounted) setDados(result);
+            }
+            calcular();
+            return () => { isMounted = false; };
+          }, [mesAno, considerarFeriados, uf, municipio]);
+        
+          return dados;
+        }
+    ──────────────────────────────
     📄 utils.js
     └── Conteúdo:
         // lib/utils.js
@@ -543,10 +791,12 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
         "lucide-react": "^0.525.0",
         "next": "^14.2.30",
         "next-auth": "^4.24.11",
+        "nodemailer": "^6.10.1",
         "react": "18.2.0",
         "react-day-picker": "^9.7.0",
         "react-dom": "18.2.0",
-        "recharts": "^3.0.2"
+        "recharts": "^3.0.2",
+        "nodemailer": "^6.9.11"
       },
       "devDependencies": {
         "autoprefixer": "10.4.17",
@@ -572,6 +822,7 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
             "lucide-react": "^0.525.0",
             "next": "^14.2.30",
             "next-auth": "^4.24.11",
+            "nodemailer": "^6.10.1",
             "react": "18.2.0",
             "react-day-picker": "^9.7.0",
             "react-dom": "18.2.0",
@@ -3014,6 +3265,15 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
           "dev": true,
           "license": "MIT"
         },
+        "node_modules/nodemailer": {
+          "version": "6.10.1",
+          "resolved": "https://registry.npmjs.org/nodemailer/-/nodemailer-6.10.1.tgz",
+          "integrity": "sha512-Z+iLaBGVaSjbIzQ4pX6XV41HrooLsQ10ZWPUehGmuantvzWoDVBnmsdUcOIDM1t+yPor5pDhVlDESgOMEGxhHA==",
+          "license": "MIT-0",
+          "engines": {
+            "node": ">=6.0.0"
+          }
+        },
         "node_modules/normalize-path": {
           "version": "3.0.0",
           "resolved": "https://registry.npmjs.org/normalize-path/-/normalize-path-3.0.0.tgz",
@@ -4704,6 +4964,52 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
               }
             }
         ──────────────────────────────
+        📄 dias-do-mes.js
+        └── Conteúdo:
+            export const dynamic = 'force-dynamic';
+            
+            export default async function handler(req, res) {
+              const { initialDate, finalDate } = req.query;
+            
+              if (!initialDate || !finalDate) {
+                return res.status(400).json({ error: 'Parâmetros initialDate e finalDate são obrigatórios.' });
+              }
+            
+              try {
+                const url = `http://elekto.com.br/api/Calendars/br-BC/Delta?initialDate=${initialDate}&finalDate=${finalDate}&type=financial`;
+                const response = await fetch(url);
+                if (!response.ok) {
+                  throw new Error(`Status ${response.status}`);
+                }
+                const data = await response.json();
+                return res.status(200).json(data);
+              } catch (error) {
+                console.error('Erro na API interna /api/dias-do-mes:', error);
+                return res.status(500).json({ error: 'Falha ao obter dias do mês da Elekto.', details: error.message });
+              }
+            }
+        ──────────────────────────────
+        📄 feriados-nacionais.js
+        └── Conteúdo:
+            export const dynamic = 'force-dynamic';
+            
+            export default async function handler(req, res) {
+              try {
+                const response = await fetch('http://elekto.com.br/api/Calendars/br-BC');
+                if (!response.ok) {
+                  throw new Error(`Status ${response.status}`);
+                }
+                const data = await response.json();
+                return res.status(200).json(data);
+              } catch (error) {
+                console.error('Erro na API interna /api/feriados-nacionais:', error);
+                return res.status(500).json({
+                  error: 'Falha ao obter feriados nacionais da Elekto.',
+                  details: error.message,
+                });
+              }
+            }
+        ──────────────────────────────
         📄 metas.js
         └── Conteúdo:
             import { getSheetData, updateSheet } from "@/lib/googleSheetsService";
@@ -4805,6 +5111,56 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                 const ABA_OPORTUNIDADES = "Oportunidades";
                 const ABA_PAGAMENTOS = "Pagamentos";
                 
+                function parseCurrency(valor) {
+                  if (typeof valor === 'number') return valor;
+                  if (!valor || typeof valor !== 'string') return 0;
+                  const numeroLimpo = String(valor).replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.');
+                  return parseFloat(numeroLimpo) || 0;
+                }
+                
+                function parsePercentage(valor) {
+                  if (typeof valor === 'number') return valor;
+                  if (!valor || typeof valor !== 'string') return 0;
+                  const numeroLimpo = String(valor).replace(',', '.');
+                  return parseFloat(numeroLimpo) || 0;
+                }
+                
+                function formatForSheet(num) {
+                  return String(Number(num).toFixed(2)).replace('.', ',');
+                }
+                
+                function pagamentosToRows(idOportunidade, pagamentos, dadosOportunidade) {
+                  const percImp = parsePercentage(dadosOportunidade.percentual_imposto);
+                  const percCom = parsePercentage(dadosOportunidade.comissao);
+                  const userEmail = dadosOportunidade.user_email || '';
+                
+                  let nextId = Date.now();
+                  const contadores = {};
+                
+                  return pagamentos.map(p => {
+                    const val = parseCurrency(p.valor_bruto);
+                    const liquido = val * percCom * (1 - percImp);
+                    const tipo = p.tipo;
+                    if (!contadores[tipo]) contadores[tipo] = 1;
+                    const numParcela = contadores[tipo]++;
+                
+                    return [
+                      String(nextId++),
+                      idOportunidade,
+                      tipo,
+                      String(numParcela),
+                      formatForSheet(val),
+                      formatForSheet(percImp),
+                      formatForSheet(liquido),
+                      p.data_prevista,
+                      p.data_recebida || '',
+                      p.status || 'Previsto',
+                      userEmail
+                    ];
+                  });
+                }
+                
+                
                 export default async function handler(req, res) {
                   const session = await getServerSession(req, res, authOptions);
                   if (!session || !session.user || session.user.status !== 'aprovado') {
@@ -4837,6 +5193,10 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                 
                       case "PUT": {
                         const dadosAtualizados = req.body;
+                        
+                                const pagamentosCustom = dadosAtualizados.pagamentos || null;
+                        delete dadosAtualizados.pagamentos;
+                        
                         dadosAtualizados.user_email = oportunidadeRow[userEmailIndex];
                         
                         const rowIndexToUpdate = oppRows.findIndex(row => String(row[idIndex]) === String(id));
@@ -4847,7 +5207,11 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                         
                         const pagamentosData = await getSheetData(ABA_PAGAMENTOS);
                         const pagamentosRestantes = pagamentosData.rows.filter(row => String(row[pagamentosData.header.indexOf("id_oportunidade")]) !== String(id));
-                        const novosPagamentos = gerarPagamentos(id, dadosAtualizados);
+                       
+                
+                        const novosPagamentos = pagamentosCustom
+                          ? pagamentosToRows(id, pagamentosCustom, dadosAtualizados)
+                          : gerarPagamentos(id, dadosAtualizados);        
                         
                         await Promise.all([
                             updateSheet(ABA_OPORTUNIDADES, [oppHeader, ...novasLinhasOp]),
@@ -5290,105 +5654,6 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                   }
                 }
             ──────────────────────────────
-            📄 pagamentos-em-atraso (cópia).js
-            └── Conteúdo:
-                import { getSheetData } from "@/lib/googleSheetsService";
-                import { getServerSession } from "next-auth/next";
-                import { authOptions } from "../auth/[...nextauth]";
-                
-                export const dynamic = 'force-dynamic';
-                
-                function rowsToObjects(header, rows) {
-                  return rows.map((row) => {
-                    const obj = {};
-                    header.forEach((key, i) => {
-                      obj[key.toLowerCase().replace(/ /g, '_')] = row[i] || "";
-                    });
-                    return obj;
-                  });
-                }
-                
-                export default async function handler(req, res) {
-                  const session = await getServerSession(req, res, authOptions);
-                
-                  if (!session || !session.user || session.user.status !== 'aprovado') {
-                    return res.status(401).json({ error: "Não autorizado." });
-                  }
-                
-                  if (req.method !== 'GET') {
-                    return res.status(405).end(`Método ${req.method} não permitido.`);
-                  }
-                
-                  try {
-                    const { visao } = req.query; // Pega o novo parâmetro 'visao'
-                
-                    let [pagamentosData, oportunidadesData] = await Promise.all([
-                      getSheetData("Pagamentos"),
-                      getSheetData("Oportunidades"),
-                    ]);
-                
-                    let pagamentos = rowsToObjects(pagamentosData.header, pagamentosData.rows);
-                    let oportunidades = rowsToObjects(oportunidadesData.header, oportunidadesData.rows);
-                    
-                    // --- LÓGICA DE SEGURANÇA ATUALIZADA ---
-                    // A condição para filtrar agora é: se o usuário NÃO for admin, OU se ele FOR admin mas NÃO estiver pedindo a visão 'todos'.
-                    if (session.user.role !== 'admin' || visao !== 'todos') {
-                      const userOportunidades = oportunidades.filter(op => op.user_email === session.user.email);
-                      const idsPermitidos = new Set(userOportunidades.map(op => op.id));
-                      
-                      // Filtra os pagamentos e as oportunidades antes de qualquer cálculo
-                      oportunidades = userOportunidades;
-                      pagamentos = pagamentos.filter(p => idsPermitidos.has(p.id_oportunidade));
-                    }
-                    // --- FIM DA LÓGICA DE SEGURANÇA ---
-                    
-                    const infoOportunidades = new Map(oportunidades.map(op => [
-                        op.id, 
-                        { 
-                            empresa: op.empresa, 
-                            fase: String(op.fase_do_funil || "").toLowerCase() 
-                        }
-                    ]));
-                
-                    const hoje = new Date();
-                    hoje.setHours(0, 0, 0, 0);
-                
-                    const pagamentosAtrasados = pagamentos
-                      .map(p => {
-                        const dataPrevista = p.data_prevista ? new Date(p.data_prevista + 'T00:00:00') : null;
-                        const infoOp = infoOportunidades.get(p.id_oportunidade);
-                        
-                        return {
-                          ...p,
-                          empresa: infoOp ? infoOp.empresa : "Desconhecido",
-                          fase_oportunidade: infoOp ? infoOp.fase : "desconhecida",
-                          dataPrevistaObj: dataPrevista
-                        };
-                      })
-                      .filter(p => {
-                        const statusValido = p.status && p.status.toLowerCase() === 'previsto';
-                        const dataValida = p.dataPrevistaObj instanceof Date && !isNaN(p.dataPrevistaObj);
-                        const oportunidadeGanha = p.fase_oportunidade === 'ganho';
-                        
-                        return statusValido && dataValida && oportunidadeGanha && p.dataPrevistaObj < hoje;
-                      })
-                      .map(p => {
-                        const diffTime = Math.abs(hoje - p.dataPrevistaObj);
-                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                        
-                        return { ...p, dias_em_atraso: diffDays };
-                      });
-                
-                    const pagamentosOrdenados = pagamentosAtrasados.sort((a, b) => b.dias_em_atraso - a.dias_em_atraso);
-                
-                    res.status(200).json(pagamentosOrdenados);
-                
-                  } catch (error) {
-                    console.error("Erro na API de Pagamentos em Atraso:", error);
-                    res.status(500).json({ error: "Erro interno ao gerar o relatório." });
-                  }
-                }
-            ──────────────────────────────
             📄 pagamentos-em-atraso.js
             └── Conteúdo:
                 import { getSheetData } from "@/lib/googleSheetsService";
@@ -5498,9 +5763,10 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
             ──────────────────────────────
         📄 usuarios.js
         └── Conteúdo:
-            import { getSheetData, updateSheet, appendRows } from "@/lib/googleSheetsService"; // <-- appendRows ADICIONADO AQUI
+            import { getSheetData, updateSheet, appendRows } from "@/lib/googleSheetsService";
             import { getServerSession } from "next-auth/next";
             import { authOptions } from "./auth/[...nextauth]";
+            import { sendInvitationEmail } from "@/lib/emailService";
             
             export const dynamic = 'force-dynamic';
             
@@ -5574,6 +5840,14 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                     // Adiciona o novo usuário com status 'convidado'
                     const newUserRow = [email, nome, role, 'convidado'];
                     await appendRows(ABA_USUARIOS, [newUserRow]);
+                    
+            
+                    try {
+                      await sendInvitationEmail({ to: email, name: nome });
+                    } catch (err) {
+                      console.error('Erro ao enviar e-mail de convite:', err);
+                    }
+                    
                     
                     return res.status(201).json({ success: true, message: `Convite enviado para ${email}.` });
                   }
@@ -5665,6 +5939,161 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
               );
             }
         ──────────────────────────────
+    📄 calcular-dsr.js
+    └── Conteúdo:
+        import { useState, useEffect, useCallback } from 'react';
+        import { Card, CardContent } from '@/components/ui/card';
+        import { useSession } from 'next-auth/react';
+        import RelatorioDSRTable from '@/components/RelatorioDSRTable';
+        import useDiasUteis from '@/lib/useDiasUteis';
+        
+        const getAnoMes = (date) => {
+          const ano = date.getFullYear();
+          const mes = String(date.getMonth() + 1).padStart(2, '0');
+          return `${ano}-${mes}`;
+        };
+        
+        export default function CalcularDSRPage() {
+          const { data: session, status } = useSession();
+          const [mesAno, setMesAno] = useState(getAnoMes(new Date()));
+          const [pagamentos, setPagamentos] = useState([]);
+          const [loading, setLoading] = useState(false);
+          const [error, setError] = useState(null);
+        
+          const [mostrar, setMostrar] = useState({
+            comissaoBruto: false,
+            comissaoLiquido: false,
+            dsrBruto: false,
+            dsrLiquido: false
+          });
+        
+          const [usarComSabado, setUsarComSabado] = useState(false);
+        
+          const [ufs, setUfs] = useState([]);
+          const [municipios, setMunicipios] = useState([]);
+          const [uf, setUf] = useState('');
+          const [municipio, setMunicipio] = useState('');
+          const [considerarFeriados, setConsiderarFeriados] = useState(false);
+        
+          const { diasSemSabado, diasComSabado, diasDescanso } = useDiasUteis(mesAno, considerarFeriados, uf, municipio);
+        
+          const fetchPagamentos = useCallback(async () => {
+            if (!session) return;
+            setLoading(true);
+            setError(null);
+            const [ano, mes] = mesAno.split('-');
+            const params = new URLSearchParams({ ano, mes });
+            try {
+              const res = await fetch(`/api/pagamentos?${params.toString()}`);
+              if (!res.ok) throw new Error('Falha ao buscar pagamentos.');
+              const data = await res.json();
+              setPagamentos(data);
+            } catch (err) {
+              setError(err.message);
+            } finally {
+              setLoading(false);
+            }
+          }, [mesAno, session]);
+        
+          useEffect(() => {
+            fetchPagamentos();
+          }, [fetchPagamentos]);
+        
+          useEffect(() => {
+            fetch('https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome')
+              .then(r => r.json())
+              .then(setUfs)
+              .catch(() => setUfs([]));
+          }, []);
+        
+          useEffect(() => {
+            if (!uf) { setMunicipios([]); return; }
+            fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios?orderBy=nome`)
+              .then(r => r.json())
+              .then(setMunicipios)
+              .catch(() => setMunicipios([]));
+          }, [uf]);
+        
+          const toggleMostrar = (campo) => {
+            setMostrar(prev => ({ ...prev, [campo]: !prev[campo] }));
+          };
+        
+          if (status === 'loading') return <div className="p-6 text-center">Carregando...</div>;
+          if (status === 'unauthenticated') return <div className="p-6 text-center">Por favor, faça o login para continuar.</div>;
+        
+          return (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h1 className="text-3xl font-bold text-gray-900">Cálculo de DSR</h1>
+              </div>
+        
+              <Card>
+                <CardContent className="p-4 flex flex-wrap items-end gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Mês/Ano</label>
+                    <input type="month" className="w-full p-2 border rounded" value={mesAno} onChange={(e) => setMesAno(e.target.value)} />
+                  </div>
+                  <div className="text-sm mt-4">
+                    <p>Dias úteis s/ sábado: {diasSemSabado}</p>
+                    <p>Dias úteis c/ sábado: {diasComSabado}</p>
+                    <p>Dias de descanso: {diasDescanso}</p>
+                  </div>
+                </CardContent>
+              </Card>
+        
+              <Card>
+                <CardContent className="p-4 space-y-4">
+                  <div className="flex flex-wrap gap-6">
+                    <div>
+                      <p className="font-medium text-sm mb-2">Bases de Cálculo</p>
+                      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={mostrar.comissaoBruto} onChange={() => toggleMostrar('comissaoBruto')} />Comissão sobre o Valor Bruto</label>
+                      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={mostrar.comissaoLiquido} onChange={() => toggleMostrar('comissaoLiquido')} />Comissão sobre o Valor Líquido</label>
+                      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={mostrar.dsrBruto} onChange={() => toggleMostrar('dsrBruto')} />DSR sobre o Valor Bruto</label>
+                      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={mostrar.dsrLiquido} onChange={() => toggleMostrar('dsrLiquido')} />DSR sobre o Valor Líquido</label>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm mb-2">Divisor do DSR</p>
+                      <label className="flex items-center gap-2 text-sm"><input type="radio" name="divisor" checked={!usarComSabado} onChange={() => setUsarComSabado(false)} />Usar dias úteis SEM sábado</label>
+                      <label className="flex items-center gap-2 text-sm"><input type="radio" name="divisor" checked={usarComSabado} onChange={() => setUsarComSabado(true)} />Usar dias úteis COM sábado</label>
+                      <p className="text-xs text-yellow-700 mt-1">⚠️ Inclua o sábado apenas se o colaborador cumpre 44h semanais ou há compensação formal. Caso contrário, usar apenas dias úteis sem sábado.</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">UF</label>
+                      <select className="w-full p-2 border rounded bg-white" value={uf} onChange={(e) => setUf(e.target.value)}>
+                        <option value="">Selecione</option>
+                        {ufs.map(u => <option key={u.id} value={u.sigla}>{u.nome}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Município</label>
+                      <select className="w-full p-2 border rounded bg-white" value={municipio} onChange={(e) => setMunicipio(e.target.value)} disabled={!uf}>
+                        <option value="">Selecione</option>
+                        {municipios.map(m => <option key={m.id} value={m.nome}>{m.nome}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-2 mt-6">
+                      <input type="checkbox" id="feriados" checked={considerarFeriados} onChange={(e) => setConsiderarFeriados(e.target.checked)} />
+                      <label htmlFor="feriados" className="text-sm">Considerar feriados locais no cálculo dos dias de descanso</label>
+                    </div>
+                  </div>
+        
+                  {error && <p className="text-red-500">Erro: {error}</p>}
+                  {loading ? <p>Carregando...</p> : (
+                    <RelatorioDSRTable
+                      pagamentos={pagamentos}
+                      mostrar={mostrar}
+                      usarComSabado={usarComSabado}
+                      diasComSabado={diasComSabado}
+                      diasSemSabado={diasSemSabado}
+                      diasDescanso={diasDescanso}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          );
+        }
+    ──────────────────────────────
     📄 configuracoes.js
     └── Conteúdo:
         // pages/configuracoes.js
@@ -6018,6 +6447,7 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
     📄 index.js
     └── Conteúdo:
         import { useEffect, useState, useMemo } from "react";
+        import { parseISO, format as formatDate } from 'date-fns';
         import { Card, CardContent } from "@/components/ui/card";
         import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
         import { Calendar } from "@/components/ui/calendarNew"; // Verifique se o nome do arquivo é 'calendarNew' ou 'calendar'
@@ -6033,6 +6463,19 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
           const [loading, setLoading] = useState(true);
           const [error, setError] = useState(null);
           const [displayedMonth, setDisplayedMonth] = useState(new Date());
+          
+            const handleDataInputChange = (e) => {
+            const valor = e.target.value;
+            try {
+              const novaData = parseISO(valor);
+              if (!isNaN(novaData)) {
+                setDisplayedMonth(novaData);
+              }
+            } catch (_) {
+              // ignore invalid date
+            }
+          };
+        
         
           // --- NOVO ESTADO PARA O FILTRO DE VISÃO ---
           const [visao, setVisao] = useState('propria'); // 'propria' ou 'todos'
@@ -6158,6 +6601,15 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                 <Card>
                     <CardContent className="p-4">
                         <h2 className="font-semibold text-lg">Calendário de Pagamentos</h2>
+                        <div className="mb-2">
+                          <input
+                            type="date"
+                            className="p-1 border rounded"
+                            value={formatDate(displayedMonth, 'yyyy-MM-dd')}
+                            onChange={handleDataInputChange}
+                          />
+                        </div>                
+                        
                         <Calendar
                             month={displayedMonth}
                             onMonthChange={setDisplayedMonth}
@@ -6454,8 +6906,20 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
     └── Conteúdo:
         import { useEffect, useState, useCallback } from "react";
         import { Card, CardContent } from "@/components/ui/card";
-        import { addDays, format, parseISO } from 'date-fns';
+        import { addDays, addMonths, format, parseISO } from 'date-fns';
         import { useSession } from "next-auth/react"; // Importa o hook de sessão
+        
+        const parseCurrency = (valor) => {
+          if (typeof valor === 'number') return valor;
+          if (!valor || typeof valor !== 'string') return 0;
+          const numeroLimpo = String(valor).replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.');
+          return parseFloat(numeroLimpo) || 0;
+        };
+        
+        const formatCurrency = (valor) => {
+          return (valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+        };
+        
         
         // Objeto com o estado inicial do formulário
         const formInicial = {
@@ -6482,6 +6946,9 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
           const [lista, setLista] = useState([]);
           const [loading, setLoading] = useState(true);
           const [error, setError] = useState(null);
+          const [pagamentos, setPagamentos] = useState([]);
+          const [loadingPagamentos, setLoadingPagamentos] = useState(false);
+          const [totalImplantacao, setTotalImplantacao] = useState(0);
         
           // --- NOVO ESTADO PARA O FILTRO DE VISÃO ---
           const [visao, setVisao] = useState('propria'); // 'propria' ou 'todos'
@@ -6513,6 +6980,105 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
               setLoading(false);
             }
           }, [session, visao]); // Adiciona 'visao' e 'session' às dependências
+        const fetchPagamentos = async (idOpp) => {
+            setLoadingPagamentos(true);
+            try {
+              const res = await fetch(`/api/pagamentos?id_oportunidade=${idOpp}`);
+              if (res.ok) {
+                const data = await res.json();
+                setPagamentos(data.map(p => ({
+                  ...p,
+                  valor_bruto: parseCurrency(p.valor_bruto),
+                  fixed: false
+                })));
+                const total = data
+                  .filter(p => p.tipo === 'Implantação')
+                  .reduce((acc, p) => acc + parseCurrency(p.valor_bruto), 0);
+                setTotalImplantacao(total);
+              } else {
+                setPagamentos([]);
+                setTotalImplantacao(0);
+              }
+            } catch (e) {
+              setPagamentos([]);
+              setTotalImplantacao(0);
+            } finally {
+              setLoadingPagamentos(false);
+            }
+          };
+        
+          const redistributeImplantacao = (pagamentosLista) => {
+            const implantacoes = pagamentosLista.filter(p => p.tipo === 'Implantação');
+            if (implantacoes.length === 0) return pagamentosLista;
+        
+            const fixedTotal = implantacoes
+              .filter(p => p.fixed)
+              .reduce((acc, p) => acc + parseFloat(p.valor_bruto || 0), 0);
+        
+            const restantes = implantacoes.filter(p => !p.fixed);
+        
+            const restanteTotal = totalImplantacao - fixedTotal;
+            const valorCada = restantes.length > 0 ? restanteTotal / restantes.length : 0;
+        
+            let idx = 0;
+            return pagamentosLista.map(p => {
+              if (p.tipo !== 'Implantação') return p;
+              if (p.fixed) return p;
+              return { ...p, valor_bruto: Number(valorCada.toFixed(2)), fixed: false };
+            });
+          };
+        
+          const handleValorChange = (index, valor) => {
+            setPagamentos(prev => {
+              const novos = [...prev];
+              const num = parseCurrency(valor);
+              novos[index] = { ...novos[index], valor_bruto: num, fixed: true };
+              return redistributeImplantacao(novos);
+            });
+          };
+        
+          const handleDataPrevistaChange = (index, valor) => {
+            setPagamentos(prev => {
+              const novos = [...prev];
+         const pagamento = novos[index];
+              novos[index] = { ...pagamento, data_prevista: valor };
+        
+              if (valor && pagamento.tipo) {
+                let baseDate;
+                try {
+                  baseDate = parseISO(valor);
+                } catch (e) {
+                  baseDate = null;
+                }
+        
+                if (baseDate) {
+                  for (let i = index + 1; i < novos.length; i++) {
+                    if (novos[i].tipo === pagamento.tipo) {
+                      baseDate = addMonths(baseDate, 1);
+                      novos[i] = { ...novos[i], data_prevista: format(baseDate, 'yyyy-MM-dd') };
+                    }
+                  }
+                }
+              }
+        
+              return novos;
+            });
+          };
+        
+        
+        
+          const handleExcluirPagamento = (index) => {
+            setPagamentos(prev => {
+              const novos = prev.filter((_, i) => i !== index);
+              const implantacoes = novos.filter(p => p.tipo === 'Implantação');
+              if (implantacoes.length === 0) {
+                alert('É obrigatório manter ao menos uma parcela de implantação.');
+                return prev;
+              }
+              return redistributeImplantacao(novos);
+            });
+          };
+          
         
           useEffect(() => {
             fetchData();
@@ -6538,6 +7104,17 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
               percentual_imposto: String(form.percentual_imposto).replace('.', ','),
               comissao: String(form.comissao).replace('.', ',')
             };
+            
+            if (isEditing) {
+              dadosParaSalvar.pagamentos = pagamentos.map(p => ({
+                tipo: p.tipo,
+                valor_bruto: p.valor_bruto,
+                data_prevista: p.data_prevista,
+                data_recebida: p.data_recebida,
+                status: p.status
+              }));
+            }    
+            
             try {
               const response = await fetch(endpoint, {
                 method: method, headers: { "Content-Type": "application/json" },
@@ -6549,6 +7126,7 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
               }
               alert(`Oportunidade ${isEditing ? 'atualizada' : 'salva'} com sucesso!`);
               setForm(formInicial);
+              setPagamentos([]);      
               fetchData();
             } catch (err) {
               alert(`Erro: ${err.message}`);
@@ -6572,7 +7150,13 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
         
           const handleEditar = (oportunidade) => {
             setForm(oportunidade);
+            fetchPagamentos(oportunidade.id);   
             window.scrollTo({ top: 0, behavior: 'smooth' });
+          };
+        
+          const handleCancelEdit = () => {
+            setForm(formInicial);
+            setPagamentos([]);
           };
         
           const atualizarCampo = (campo, valor) => {
@@ -6676,8 +7260,59 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                     <label className="text-xs font-medium text-gray-600">Observação</label>
                     <textarea className="w-full p-2 border rounded" value={form.observacao || ""} onChange={e => atualizarCampo("observacao", e.target.value)} />
                   </div>
+                  {form.id && (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-semibold">Pagamentos</h3>
+                      {loadingPagamentos ? (
+                        <p>Carregando pagamentos...</p>
+                      ) : (
+                        <table className="w-full text-xs text-left">
+                          <thead className="bg-gray-100">
+                            <tr>
+                              <th className="p-2 border">Tipo</th>
+                              <th className="p-2 border">Parcela</th>
+                              <th className="p-2 border">Valor</th>
+                              <th className="p-2 border">Data Prevista</th>
+                              <th className="p-2 border text-center">Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pagamentos.map((p, idx) => (
+                              <tr key={idx} className="border-b">
+                                <td className="p-2 border">{p.tipo}</td>
+                                <td className="p-2 border">{p.num_parcela}</td>
+                                <td className="p-2 border">
+                                  <input type="number" className="w-full p-1 border rounded" value={p.valor_bruto} onChange={e => handleValorChange(idx, e.target.value)} />
+                                </td>
+                                
+                                <td className="p-2 border">
+                                  <input
+                                    type="date"
+                                    className="w-full p-1 border rounded"
+                                    value={p.data_prevista || ''}
+                                    onChange={e => handleDataPrevistaChange(idx, e.target.value)}
+                                  />
+                                </td>                        
+                                
+                                <td className="p-2 border text-center">
+                                  <button onClick={() => handleExcluirPagamento(idx)} className="text-red-600 hover:underline">Excluir</button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                      <p className="text-xs text-gray-500">Total Implantação: {formatCurrency(totalImplantacao)}</p>
+                    </div>
+                  )}
+                 
                   <div className="flex justify-end gap-2 mt-4">
-                    <button onClick={() => setForm(formInicial)} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Limpar</button>
+                  
+                              {form.id && (
+                      <button onClick={handleCancelEdit} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Cancelar</button>
+                    )}          
+                    <button onClick={() => { setForm(formInicial); setPagamentos([]); }} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Limpar</button>
+        
                     <button onClick={handleSalvar} className="bg-violet-600 text-white px-4 py-2 rounded hover:bg-violet-700">
                       {form.id ? 'Atualizar Oportunidade' : 'Salvar Nova Oportunidade'}
                     </button>
@@ -7192,6 +7827,154 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                 );
             }
         ──────────────────────────────
+        📄 dsr.js
+        └── Conteúdo:
+            import { useState, useCallback, useEffect } from 'react';
+            import { Card, CardContent } from '@/components/ui/card';
+            import { useSession } from 'next-auth/react';
+            import RelatorioDSRTable from '@/components/RelatorioDSRTable';
+            import useDiasUteis from '@/lib/useDiasUteis';
+            
+            const getAnoMes = (date) => {
+              const ano = date.getFullYear();
+              const mes = String(date.getMonth() + 1).padStart(2, '0');
+              return `${ano}-${mes}`;
+            };
+            
+            export default function RelatorioDSRPage() {
+              const { data: session, status } = useSession();
+              const [mesAno, setMesAno] = useState(getAnoMes(new Date()));
+              const [pagamentos, setPagamentos] = useState([]);
+              const [loading, setLoading] = useState(false);
+              const [error, setError] = useState(null);
+            
+              const [mostrar, setMostrar] = useState({
+                comissaoBruto: true,
+                comissaoLiquido: true,
+                dsrBruto: true,
+                dsrLiquido: true
+              });
+            
+              const [usarComSabado, setUsarComSabado] = useState(false);
+            
+              const [ufs, setUfs] = useState([]);
+              const [municipios, setMunicipios] = useState([]);
+              const [uf, setUf] = useState('');
+              const [municipio, setMunicipio] = useState('');
+              const [considerarFeriados, setConsiderarFeriados] = useState(false);
+            
+              const { diasSemSabado, diasComSabado, diasDescanso } = useDiasUteis(mesAno, considerarFeriados, uf, municipio);
+            
+              const fetchPagamentos = useCallback(async () => {
+                if (!session) return;
+                setLoading(true);
+                setError(null);
+                const [ano, mes] = mesAno.split('-');
+                const params = new URLSearchParams({ ano, mes });
+                try {
+                  const res = await fetch(`/api/pagamentos?${params.toString()}`);
+                  if (!res.ok) throw new Error('Falha ao buscar pagamentos.');
+                  const data = await res.json();
+                  setPagamentos(data);
+                } catch (err) {
+                  setError(err.message);
+                } finally {
+                  setLoading(false);
+                }
+              }, [mesAno, session]);
+            
+              useEffect(() => { fetchPagamentos(); }, [fetchPagamentos]);
+            
+              useEffect(() => {
+                fetch('https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome')
+                  .then(r => r.json())
+                  .then(setUfs)
+                  .catch(() => setUfs([]));
+              }, []);
+            
+              useEffect(() => {
+                if (!uf) { setMunicipios([]); return; }
+                fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios?orderBy=nome`)
+                  .then(r => r.json())
+                  .then(setMunicipios)
+                  .catch(() => setMunicipios([]));
+              }, [uf]);
+            
+              if (status === 'loading') return <div className="p-6 text-center">Carregando...</div>;
+              if (status === 'unauthenticated' || session?.user?.role !== 'admin') return <div className="p-6 text-center">Acesso não autorizado.</div>;
+            
+              return (
+                <div className="space-y-6" id="pagina-relatorio">
+                  <div className="print-hide">
+                    <h1 className="text-3xl font-bold text-gray-900">Relatório de DSR</h1>
+                    <p className="text-gray-600 mt-2">Cálculo consolidado de DSR por pagamento.</p>
+                  </div>
+            
+                  <Card className="print-hide">
+                    <CardContent className="p-4 flex flex-wrap items-end gap-4">
+                      <div>
+                        <label className="text-sm font-medium">Mês/Ano</label>
+                        <input type="month" className="w-full p-2 border rounded" value={mesAno} onChange={(e) => setMesAno(e.target.value)} />
+                      </div>
+                      <div className="text-sm mt-4">
+                        <p>Dias úteis s/ sábado: {diasSemSabado}</p>
+                        <p>Dias úteis c/ sábado: {diasComSabado}</p>
+                        <p>Dias de descanso: {diasDescanso}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">UF</label>
+                        <select className="w-full p-2 border rounded bg-white" value={uf} onChange={(e) => setUf(e.target.value)}>
+                          <option value="">Selecione</option>
+                          {ufs.map(u => <option key={u.id} value={u.sigla}>{u.nome}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Município</label>
+                        <select className="w-full p-2 border rounded bg-white" value={municipio} onChange={(e) => setMunicipio(e.target.value)} disabled={!uf}>
+                          <option value="">Selecione</option>
+                          {municipios.map(m => <option key={m.id} value={m.nome}>{m.nome}</option>)}
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-2 mt-6">
+                        <input type="checkbox" id="feriadosr" checked={considerarFeriados} onChange={(e) => setConsiderarFeriados(e.target.checked)} />
+                        <label htmlFor="feriadosr" className="text-sm">Considerar feriados locais</label>
+                      </div>
+                    </CardContent>
+                  </Card>
+            
+                  {error && <p className="text-center text-red-500 print-hide">Erro: {error}</p>}
+            
+                  {pagamentos.length > 0 && (
+                    <Card id="report-area">
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-center mb-4">
+                          <h2 className="text-2xl font-bold">Relatório de DSR</h2>
+                          <div className="text-right">
+                            <p className="font-semibold">Período: {mesAno.split('-')[1]}/{mesAno.split('-')[0]}</p>
+                            <p className="text-sm text-gray-500">Gerado em: {new Date().toLocaleDateString('pt-BR')}</p>
+                          </div>
+                        </div>
+                        <RelatorioDSRTable
+                          pagamentos={pagamentos}
+                          mostrar={mostrar}
+                          usarComSabado={usarComSabado}
+                          diasComSabado={diasComSabado}
+                          diasSemSabado={diasSemSabado}
+                          diasDescanso={diasDescanso}
+                          ocultarData
+                          ocultarStatus
+                          ocultarTipo              
+                        />
+                        <div className="flex justify-end mt-6 print-hide">
+                          <button onClick={() => window.print()} className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">Imprimir / Salvar PDF</button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              );
+            }
+        ──────────────────────────────
         📄 extrato-mensal.js
         └── Conteúdo:
             import { useState, useCallback, useEffect } from "react";
@@ -7693,10 +8476,16 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
             link: "/relatorios/detalhamento-oportunidade"
           },
           // --- NOVO RELATÓRIO ADICIONADO AQUI ---
+            {
+            titulo: "Relatório de DSR",
+            descricao: "Cálculo consolidado de DSR por pagamento.",
+            link: "/relatorios/dsr"
+          },
           {
             titulo: "Pagamentos em Atraso",
             descricao: "Liste todos os pagamentos previstos cuja data já passou e que ainda não foram recebidos.",
             link: "/relatorios/pagamentos-em-atraso", // Link a ser criado
+            
             
           },
           // ------------------------------------

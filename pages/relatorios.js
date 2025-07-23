@@ -13,10 +13,16 @@ const relatoriosDisponiveis = [
     link: "/relatorios/detalhamento-oportunidade"
   },
   // --- NOVO RELATÓRIO ADICIONADO AQUI ---
+    {
+    titulo: "Relatório de DSR",
+    descricao: "Cálculo consolidado de DSR por pagamento.",
+    link: "/relatorios/dsr"
+  },
   {
     titulo: "Pagamentos em Atraso",
     descricao: "Liste todos os pagamentos previstos cuja data já passou e que ainda não foram recebidos.",
     link: "/relatorios/pagamentos-em-atraso", // Link a ser criado
+    
     
   },
   // ------------------------------------

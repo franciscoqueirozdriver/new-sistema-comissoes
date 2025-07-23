@@ -244,8 +244,13 @@ const fetchPagamentos = async (idOpp) => {
 
   const handleEditar = (oportunidade) => {
     setForm(oportunidade);
-    fetchPagamentos(oportunidade.id);    
+    fetchPagamentos(oportunidade.id);   
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setForm(formInicial);
+    setPagamentos([]);
   };
 
   const atualizarCampo = (campo, valor) => {
@@ -397,6 +402,9 @@ const fetchPagamentos = async (idOpp) => {
          
           <div className="flex justify-end gap-2 mt-4">
           
+                      {form.id && (
+              <button onClick={handleCancelEdit} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Cancelar</button>
+            )}          
             <button onClick={() => { setForm(formInicial); setPagamentos([]); }} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Limpar</button>
 
             <button onClick={handleSalvar} className="bg-violet-600 text-white px-4 py-2 rounded hover:bg-violet-700">

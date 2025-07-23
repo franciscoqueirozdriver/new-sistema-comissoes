@@ -11,8 +11,11 @@ const navLinks = [
   { href: "/relatorios", label: "Relatórios" },
   { href: "/configuracoes", label: "Configurações" },
   // Link que só será exibido para administradores
-  { href: "/gerenciar-usuarios", label: "Gerenciar Usuários", admin: true }, 
+  { href: "/gerenciar-usuarios", label: "Gerenciar Usuários", admin: true },
+  { href: "/calcular-dsr", label: "Calcular DSR", admin: true }, 
 ];
+
+
 
 export default function Sidebar() {
   const router = useRouter();
