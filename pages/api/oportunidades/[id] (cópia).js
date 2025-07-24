@@ -30,8 +30,7 @@ function formatForSheet(num) {
 
 function pagamentosToRows(idOportunidade, pagamentos, dadosOportunidade) {
   const percImp = parsePercentage(dadosOportunidade.percentual_imposto);
-  const percComImplantacao = parsePercentage(dadosOportunidade.comissao_implantacao ?? dadosOportunidade.comissao);
-  const percComMensalidade = parsePercentage(dadosOportunidade.comissao_mensalidade ?? dadosOportunidade.comissao);
+  const percCom = parsePercentage(dadosOportunidade.comissao);
   const userEmail = dadosOportunidade.user_email || '';
 
   let nextId = Date.now();
@@ -39,17 +38,15 @@ function pagamentosToRows(idOportunidade, pagamentos, dadosOportunidade) {
 
   return pagamentos.map(p => {
     const val = parseCurrency(p.valor_bruto);
-    const tipo = p.tipo.toLowerCase();
-    const percCom = tipo.includes("implanta") ? percComImplantacao : percComMensalidade;
     const liquido = val * percCom * (1 - percImp);
-
-    if (!contadores[p.tipo]) contadores[p.tipo] = 1;
-    const numParcela = contadores[p.tipo]++;
+    const tipo = p.tipo;
+    if (!contadores[tipo]) contadores[tipo] = 1;
+    const numParcela = contadores[tipo]++;
 
     return [
       String(nextId++),
       idOportunidade,
-      p.tipo,
+      tipo,
       String(numParcela),
       formatForSheet(val),
       formatForSheet(percImp),
@@ -61,6 +58,7 @@ function pagamentosToRows(idOportunidade, pagamentos, dadosOportunidade) {
     ];
   });
 }
+
 
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
@@ -94,7 +92,8 @@ export default async function handler(req, res) {
 
       case "PUT": {
         const dadosAtualizados = req.body;
-        const pagamentosCustom = dadosAtualizados.pagamentos || null;
+        
+                const pagamentosCustom = dadosAtualizados.pagamentos || null;
         delete dadosAtualizados.pagamentos;
         
         dadosAtualizados.user_email = oportunidadeRow[userEmailIndex];
@@ -108,6 +107,7 @@ export default async function handler(req, res) {
         const pagamentosData = await getSheetData(ABA_PAGAMENTOS);
         const pagamentosRestantes = pagamentosData.rows.filter(row => String(row[pagamentosData.header.indexOf("id_oportunidade")]) !== String(id));
        
+
         const novosPagamentos = pagamentosCustom
           ? pagamentosToRows(id, pagamentosCustom, dadosAtualizados)
           : gerarPagamentos(id, dadosAtualizados);        

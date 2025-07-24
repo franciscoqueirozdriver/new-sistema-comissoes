@@ -39,24 +39,23 @@ export default async function handler(req, res) {
     let pagamentos = rowsToObjects(pagamentosData.header, pagamentosData.rows);
     let oportunidades = rowsToObjects(oportunidadesData.header, oportunidadesData.rows);
 
-    // --- LÓGICA DE SEGURANÇA ---
+    // --- LÓGICA DE SEGURANÇA ATUALIZADA ---
     if (session.user.role !== 'admin' || visao !== 'todos') {
       const userOportunidades = oportunidades.filter(op => op.user_email === session.user.email);
       const idsPermitidos = new Set(userOportunidades.map(op => op.id));
       oportunidades = userOportunidades;
       pagamentos = pagamentos.filter(p => idsPermitidos.has(p.id_oportunidade));
     }
+    // --- FIM DA LÓGICA DE SEGURANÇA ---
 
     const infoOportunidades = new Map(oportunidades.map(op => [
         op.id, { 
           empresa: op.empresa, 
-          percentual_imposto: op.percentual_imposto,
-          comissao_implantacao: op.comissao_implantacao,
-          comissao_mensalidade: op.comissao_mensalidade,
-          comissao: op.comissao // fallback se antigo
+          comissao: op.comissao,
+          percentual_imposto: op.percentual_imposto
         }
     ]));
-
+    
     const totalParcelas = {};
     pagamentos.forEach(p => {
         const key = `${p.id_oportunidade}_${p.tipo}`;
@@ -68,15 +67,7 @@ export default async function handler(req, res) {
       const infoOp = infoOportunidades.get(pagamento.id_oportunidade);
       const valorBruto = parseFloat(String(pagamento.valor_bruto || "0").replace(/\./g, "").replace(",", "."));
       const impostoPct = infoOp ? parseFloat(String(infoOp.percentual_imposto || "0").replace(",", ".")) : 0;
-
-      const comissaoImplantacao = infoOp?.comissao_implantacao || infoOp?.comissao || "0,00";
-      const comissaoMensalidade = infoOp?.comissao_mensalidade || infoOp?.comissao || "0,00";
-
-      const tipo = pagamento.tipo.toLowerCase();
-      const comissaoPct = parseFloat(
-        String(tipo.includes("implanta") ? comissaoImplantacao : comissaoMensalidade).replace(",", ".")
-      );
-
+      const comissaoPct = infoOp ? parseFloat(String(infoOp.comissao || "0").replace(",", ".")) : 0.20;
       const liquidoVenda = valorBruto * (1 - impostoPct);
       const totalKey = `${pagamento.id_oportunidade}_${pagamento.tipo}`;
       const total = totalParcelas[totalKey] || 1;
@@ -123,4 +114,3 @@ export default async function handler(req, res) {
     res.status(500).json({ error: "Erro interno ao buscar pagamentos." });
   }
 }
-

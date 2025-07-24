@@ -14,7 +14,6 @@ const formatCurrency = (valor) => {
   return (valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 };
 
-
 // Objeto com o estado inicial do formulário
 const formInicial = {
   empresa: "",
@@ -29,7 +28,8 @@ const formInicial = {
   data_fechamento: "",
   data_primeiro_pagamento_mensal: "",
   percentual_imposto: "0,19",
-  comissao: "0,20",
+  comissao_implantacao: "0,20",
+  comissao_mensalidade: "0,20",
   observacao: "",
 };
 
@@ -73,8 +73,9 @@ export default function OportunidadesPage() {
     } finally {
       setLoading(false);
     }
-  }, [session, visao]); // Adiciona 'visao' e 'session' às dependências
-const fetchPagamentos = async (idOpp) => {
+  }, [session, visao]);
+
+  const fetchPagamentos = async (idOpp) => {
     setLoadingPagamentos(true);
     try {
       const res = await fetch(`/api/pagamentos?id_oportunidade=${idOpp}`);
@@ -134,7 +135,7 @@ const fetchPagamentos = async (idOpp) => {
   const handleDataPrevistaChange = (index, valor) => {
     setPagamentos(prev => {
       const novos = [...prev];
- const pagamento = novos[index];
+      const pagamento = novos[index];
       novos[index] = { ...pagamento, data_prevista: valor };
 
       if (valor && pagamento.tipo) {
@@ -159,8 +160,6 @@ const fetchPagamentos = async (idOpp) => {
     });
   };
 
-
-
   const handleExcluirPagamento = (index) => {
     setPagamentos(prev => {
       const novos = prev.filter((_, i) => i !== index);
@@ -172,7 +171,6 @@ const fetchPagamentos = async (idOpp) => {
       return redistributeImplantacao(novos);
     });
   };
-  
 
   useEffect(() => {
     fetchData();
@@ -182,11 +180,13 @@ const fetchPagamentos = async (idOpp) => {
     const camposObrigatorios = [
       'empresa', 'fonte', 'fase_do_funil', 'data_entrada', 'previsao_fechamento',
       'valor_implantacao', 'parcelas_implantacao', 'valor_mensalidade',
-      'qtde_mensalidades', 'data_primeiro_pagamento_mensal', 'percentual_imposto', 'comissao'
+      'qtde_mensalidades', 'data_primeiro_pagamento_mensal', 'percentual_imposto',
+      'comissao_implantacao', 'comissao_mensalidade'
     ];
     for (const campo of camposObrigatorios) {
       if (!form[campo]) {
-        const nomeCampoFormatado = campo.replace(/_/g, ' ').replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+        const nomeCampoFormatado = campo.replace(/_/g, ' ')
+          .replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
         alert(`O campo "${nomeCampoFormatado}" é obrigatório.`);
         return;
       }
@@ -194,11 +194,13 @@ const fetchPagamentos = async (idOpp) => {
     const isEditing = !!form.id;
     const method = isEditing ? "PUT" : "POST";
     const endpoint = isEditing ? `/api/oportunidades/${form.id}` : "/api/oportunidades";
-    const dadosParaSalvar = { ...form,
+    const dadosParaSalvar = {
+      ...form,
       percentual_imposto: String(form.percentual_imposto).replace('.', ','),
-      comissao: String(form.comissao).replace('.', ',')
+      comissao_implantacao: String(form.comissao_implantacao).replace('.', ','),
+      comissao_mensalidade: String(form.comissao_mensalidade).replace('.', ',')
     };
-    
+
     if (isEditing) {
       dadosParaSalvar.pagamentos = pagamentos.map(p => ({
         tipo: p.tipo,
@@ -207,8 +209,8 @@ const fetchPagamentos = async (idOpp) => {
         data_recebida: p.data_recebida,
         status: p.status
       }));
-    }    
-    
+    }
+
     try {
       const response = await fetch(endpoint, {
         method: method, headers: { "Content-Type": "application/json" },
@@ -220,7 +222,7 @@ const fetchPagamentos = async (idOpp) => {
       }
       alert(`Oportunidade ${isEditing ? 'atualizada' : 'salva'} com sucesso!`);
       setForm(formInicial);
-      setPagamentos([]);      
+      setPagamentos([]);
       fetchData();
     } catch (err) {
       alert(`Erro: ${err.message}`);
@@ -243,8 +245,13 @@ const fetchPagamentos = async (idOpp) => {
   };
 
   const handleEditar = (oportunidade) => {
-    setForm(oportunidade);
-    fetchPagamentos(oportunidade.id);   
+    setForm({
+      ...formInicial,
+      ...oportunidade,
+      comissao_implantacao: oportunidade.comissao_implantacao || oportunidade.comissao || '',
+      comissao_mensalidade: oportunidade.comissao_mensalidade || oportunidade.comissao || ''
+    });
+    fetchPagamentos(oportunidade.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -346,8 +353,24 @@ const fetchPagamentos = async (idOpp) => {
               <input placeholder="Ex: 0,19" type="text" className="w-full p-2 border rounded" value={form.percentual_imposto || ""} onChange={e => atualizarCampo("percentual_imposto", e.target.value)} />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600">% Comissão</label>
-              <input placeholder="Ex: 0,20" type="text" className="w-full p-2 border rounded" value={form.comissao || ""} onChange={e => atualizarCampo("comissao", e.target.value)} />
+              <label className="text-xs font-medium text-gray-600">% Comissão Implantação</label>
+              <input
+                placeholder="Ex: 0,20"
+                type="text"
+                className="w-full p-2 border rounded"
+                value={form.comissao_implantacao || ""}
+                onChange={e => atualizarCampo("comissao_implantacao", e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600">% Comissão Mensalidade</label>
+              <input
+                placeholder="Ex: 0,20"
+                type="text"
+                className="w-full p-2 border rounded"
+                value={form.comissao_mensalidade || ""}
+                onChange={e => atualizarCampo("comissao_mensalidade", e.target.value)}
+              />
             </div>
           </div>
           <div>
@@ -378,7 +401,7 @@ const fetchPagamentos = async (idOpp) => {
                         <td className="p-2 border">
                           <input type="number" className="w-full p-1 border rounded" value={p.valor_bruto} onChange={e => handleValorChange(idx, e.target.value)} />
                         </td>
-                        
+
                         <td className="p-2 border">
                           <input
                             type="date"
@@ -386,8 +409,8 @@ const fetchPagamentos = async (idOpp) => {
                             value={p.data_prevista || ''}
                             onChange={e => handleDataPrevistaChange(idx, e.target.value)}
                           />
-                        </td>                        
-                        
+                        </td>
+
                         <td className="p-2 border text-center">
                           <button onClick={() => handleExcluirPagamento(idx)} className="text-red-600 hover:underline">Excluir</button>
                         </td>
@@ -399,12 +422,11 @@ const fetchPagamentos = async (idOpp) => {
               <p className="text-xs text-gray-500">Total Implantação: {formatCurrency(totalImplantacao)}</p>
             </div>
           )}
-         
+
           <div className="flex justify-end gap-2 mt-4">
-          
-                      {form.id && (
+            {form.id && (
               <button onClick={handleCancelEdit} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Cancelar</button>
-            )}          
+            )}
             <button onClick={() => { setForm(formInicial); setPagamentos([]); }} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Limpar</button>
 
             <button onClick={handleSalvar} className="bg-violet-600 text-white px-4 py-2 rounded hover:bg-violet-700">
@@ -413,7 +435,7 @@ const fetchPagamentos = async (idOpp) => {
           </div>
         </CardContent>
       </Card>
-      
+
       <Card>
         <CardContent className="p-4">
           <h2 className="text-xl font-semibold mb-4">Oportunidades Cadastradas</h2>
