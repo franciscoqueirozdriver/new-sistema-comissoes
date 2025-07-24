@@ -14,6 +14,52 @@ const formatCurrency = (valor) => {
   return (valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 };
 
+const gerarPagamentosLocal = (dados) => {
+  const pagamentos = [];
+  const baseStr = dados.data_primeiro_pagamento_mensal;
+  if (!baseStr) return pagamentos;
+  const baseDate = new Date(baseStr + 'T00:00:00');
+
+  const parcelasImpl = parseInt(dados.parcelas_implantacao, 10);
+  const valorImpl = parseCurrency(dados.valor_implantacao);
+  if (parcelasImpl > 0 && valorImpl > 0) {
+    const valorUnit = valorImpl / parcelasImpl;
+    for (let i = 0; i < parcelasImpl; i++) {
+      const d = new Date(baseDate); d.setMonth(d.getMonth() + i);
+      pagamentos.push({
+        tipo: 'Implantação',
+        num_parcela: String(i + 1),
+        valor_bruto: Number(valorUnit.toFixed(2)),
+        data_prevista: d.toISOString().split('T')[0],
+        data_recebida: '',
+        status: 'Previsto',
+        fixed: false,
+        percentual: ''
+      });
+    }
+  }
+
+  const qtdMens = parseInt(dados.qtde_mensalidades, 10);
+  const valorMens = parseCurrency(dados.valor_mensalidade);
+  if (qtdMens > 0 && valorMens > 0) {
+    for (let i = 0; i < qtdMens; i++) {
+      const d = new Date(baseDate); d.setMonth(d.getMonth() + i);
+      pagamentos.push({
+        tipo: 'Mensalidade',
+        num_parcela: String(i + 1),
+        valor_bruto: Number(valorMens.toFixed(2)),
+        data_prevista: d.toISOString().split('T')[0],
+        data_recebida: '',
+        status: 'Previsto',
+        fixed: false,
+        percentual: ''
+      });
+    }
+  }
+
+  return pagamentos;
+};
+
 // Objeto com o estado inicial do formulário
 const formInicial = {
   empresa: "",
@@ -43,6 +89,7 @@ export default function OportunidadesPage() {
   const [pagamentos, setPagamentos] = useState([]);
   const [loadingPagamentos, setLoadingPagamentos] = useState(false);
   const [totalImplantacao, setTotalImplantacao] = useState(0);
+  const [pagamentosCarregados, setPagamentosCarregados] = useState(false);
 
   // --- NOVO ESTADO PARA O FILTRO DE VISÃO ---
   const [visao, setVisao] = useState('propria'); // 'propria' ou 'todos'
@@ -77,6 +124,7 @@ export default function OportunidadesPage() {
 
   const fetchPagamentos = async (idOpp) => {
     setLoadingPagamentos(true);
+    setPagamentosCarregados(false);
     try {
       const res = await fetch(`/api/pagamentos?id_oportunidade=${idOpp}`);
       if (res.ok) {
@@ -84,12 +132,14 @@ export default function OportunidadesPage() {
         setPagamentos(data.map(p => ({
           ...p,
           valor_bruto: parseCurrency(p.valor_bruto),
-          fixed: false
+          fixed: false,
+          percentual: ''
         })));
         const total = data
           .filter(p => p.tipo === 'Implantação')
           .reduce((acc, p) => acc + parseCurrency(p.valor_bruto), 0);
         setTotalImplantacao(total);
+        setPagamentosCarregados(true);
       } else {
         setPagamentos([]);
         setTotalImplantacao(0);
@@ -106,18 +156,33 @@ export default function OportunidadesPage() {
     const implantacoes = pagamentosLista.filter(p => p.tipo === 'Implantação');
     if (implantacoes.length === 0) return pagamentosLista;
 
-    const fixedTotal = implantacoes
-      .filter(p => p.fixed)
+    let totalPercentual = 0;
+    const ajustadosPercentual = pagamentosLista.map(p => {
+      if (p.tipo !== 'Implantação') return p;
+      const perc = parseFloat(p.percentual);
+      if (!isNaN(perc) && perc > 0) {
+        const valor = totalImplantacao * perc / 100;
+        totalPercentual += valor;
+        return { ...p, valor_bruto: Number(valor.toFixed(2)), fixed: true };
+      }
+      return p;
+    });
+
+    const implantacoesAtual = ajustadosPercentual.filter(p => p.tipo === 'Implantação');
+
+    const fixedTotal = implantacoesAtual
+      .filter(p => p.fixed && (!p.percentual || parseFloat(p.percentual) === 0))
       .reduce((acc, p) => acc + parseFloat(p.valor_bruto || 0), 0);
 
-    const restantes = implantacoes.filter(p => !p.fixed);
+    const restantes = implantacoesAtual.filter(p => !p.fixed && (!p.percentual || parseFloat(p.percentual) === 0));
 
-    const restanteTotal = totalImplantacao - fixedTotal;
+    const restanteTotal = totalImplantacao - fixedTotal - totalPercentual;
     const valorCada = restantes.length > 0 ? restanteTotal / restantes.length : 0;
 
-    let idx = 0;
-    return pagamentosLista.map(p => {
+    return ajustadosPercentual.map(p => {
       if (p.tipo !== 'Implantação') return p;
+      const perc = parseFloat(p.percentual);
+      if (!isNaN(perc) && perc > 0) return p;
       if (p.fixed) return p;
       return { ...p, valor_bruto: Number(valorCada.toFixed(2)), fixed: false };
     });
@@ -127,7 +192,16 @@ export default function OportunidadesPage() {
     setPagamentos(prev => {
       const novos = [...prev];
       const num = parseCurrency(valor);
-      novos[index] = { ...novos[index], valor_bruto: num, fixed: true };
+      novos[index] = { ...novos[index], valor_bruto: num, fixed: true, percentual: '' };
+      return redistributeImplantacao(novos);
+    });
+  };
+
+  const handlePercentualChange = (index, valor) => {
+    setPagamentos(prev => {
+      const novos = [...prev];
+      const pct = valor === '' ? '' : String(valor).replace(',', '.');
+      novos[index] = { ...novos[index], percentual: pct, fixed: pct !== '' };
       return redistributeImplantacao(novos);
     });
   };
@@ -175,6 +249,18 @@ export default function OportunidadesPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (form.valor_implantacao) {
+      setTotalImplantacao(parseCurrency(form.valor_implantacao));
+    }
+  }, [form.valor_implantacao]);
+
+  useEffect(() => {
+    if (!pagamentosCarregados || !form.id) return;
+    setPagamentos(gerarPagamentosLocal(form));
+    setTotalImplantacao(parseCurrency(form.valor_implantacao));
+  }, [form.parcelas_implantacao, form.qtde_mensalidades]);
 
   const handleSalvar = async () => {
     const camposObrigatorios = [
@@ -251,6 +337,7 @@ export default function OportunidadesPage() {
       comissao_implantacao: oportunidade.comissao_implantacao || oportunidade.comissao || '',
       comissao_mensalidade: oportunidade.comissao_mensalidade || oportunidade.comissao || ''
     });
+    setPagamentosCarregados(false);
     fetchPagamentos(oportunidade.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -258,6 +345,7 @@ export default function OportunidadesPage() {
   const handleCancelEdit = () => {
     setForm(formInicial);
     setPagamentos([]);
+    setPagamentosCarregados(false);
   };
 
   const atualizarCampo = (campo, valor) => {
@@ -389,6 +477,7 @@ export default function OportunidadesPage() {
                       <th className="p-2 border">Tipo</th>
                       <th className="p-2 border">Parcela</th>
                       <th className="p-2 border">Valor</th>
+                      <th className="p-2 border">% do Total</th>
                       <th className="p-2 border">Data Prevista</th>
                       <th className="p-2 border text-center">Ações</th>
                     </tr>
@@ -400,6 +489,9 @@ export default function OportunidadesPage() {
                         <td className="p-2 border">{p.num_parcela}</td>
                         <td className="p-2 border">
                           <input type="number" className="w-full p-1 border rounded" value={p.valor_bruto} onChange={e => handleValorChange(idx, e.target.value)} />
+                        </td>
+                        <td className="p-2 border">
+                          <input type="number" className="w-full p-1 border rounded" value={p.percentual || ''} onChange={e => handlePercentualChange(idx, e.target.value)} />
                         </td>
 
                         <td className="p-2 border">
