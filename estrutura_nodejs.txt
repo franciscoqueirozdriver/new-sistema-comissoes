@@ -1,4 +1,4 @@
-📂 Estrutura do projeto Node.js – qui 24 jul 2025 10:59:28 -03
+📂 Estrutura do projeto Node.js – sáb 26 jul 2025 00:27:56 -03
 Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
 ──────────────────────────────
 📁 next-tailwind-sistema-comissoes
@@ -529,17 +529,17 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
     📄 financeiroService.js
     └── Conteúdo:
         const parseCurrency = (valor) => {
-            if (typeof valor === 'number') return valor;
-            if (!valor || typeof valor !== 'string') return 0;
-            const numeroLimpo = String(valor).replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.');
-            return parseFloat(numeroLimpo) || 0;
+          if (typeof valor === 'number') return valor;
+          if (!valor || typeof valor !== 'string') return 0;
+          const numeroLimpo = String(valor).replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.');
+          return parseFloat(numeroLimpo) || 0;
         };
         
         const parsePercentage = (valor) => {
-            if (typeof valor === 'number') return valor;
-            if (!valor || typeof valor !== 'string') return 0;
-            const numeroLimpo = String(valor).replace(',', '.');
-            return parseFloat(numeroLimpo) || 0;
+          if (typeof valor === 'number') return valor;
+          if (!valor || typeof valor !== 'string') return 0;
+          const numeroLimpo = String(valor).replace(',', '.');
+          return parseFloat(numeroLimpo) || 0;
         };
         
         const formatForSheet = (num) => String(Number(num).toFixed(2)).replace('.', ',');
@@ -548,7 +548,13 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
           const pagamentos = [];
         
           const percentualImposto = parsePercentage(dadosOportunidade.percentual_imposto);
-          const percentualComissao = parsePercentage(dadosOportunidade.comissao);
+          const percentualComissaoImplantacao = parsePercentage(
+            dadosOportunidade.comissao_implantacao ?? dadosOportunidade.comissao
+          );
+          const percentualComissaoMensalidade = parsePercentage(
+            dadosOportunidade.comissao_mensalidade ?? dadosOportunidade.comissao
+          );
+        
           const dataBase = new Date(dadosOportunidade.data_primeiro_pagamento_mensal + 'T00:00:00');
           const userEmail = dadosOportunidade.user_email || "";
         
@@ -563,7 +569,7 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
           // --- IMPLANTAÇÃO ---
           if (valorImplantacao > 0 && parcelasImplantacao > 0) {
             const valorUnitario = valorImplantacao / parcelasImplantacao;
-            const valorLiquido = valorUnitario * percentualComissao * (1 - percentualImposto);
+            const valorLiquido = valorUnitario * percentualComissaoImplantacao * (1 - percentualImposto);
         
             for (let i = 0; i < parcelasImplantacao; i++) {
               const dataPrevista = new Date(dataBase);
@@ -587,9 +593,7 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
         
           // --- MENSALIDADE ---
           if (valorMensalidade > 0 && qtdMensalidades > 0) {
-            const valorLiquido = valorMensalidade * percentualComissao * (1 - percentualImposto);
-            // Mensalidades devem iniciar no mesmo mês da primeira parcela de implantação
-            // portanto não aplicamos nenhum deslocamento baseado nas parcelas de implantação
+            const valorLiquido = valorMensalidade * percentualComissaoMensalidade * (1 - percentualImposto);
             const offsetMeses = 0;
         
             for (let i = 0; i < qtdMensalidades; i++) {
@@ -607,7 +611,7 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                 dataPrevista.toISOString().split("T")[0], // data_prevista
                 "",                                     // data_recebida
                 "Previsto",                             // status
-                userEmail                               // user_email
+                userEmail
               ]);
             }
           }
@@ -1299,96 +1303,6 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
             
               await transporter.sendMail(mailOptions);
             }
-        ──────────────────────────────
-        📄 financeiroService (cópia).js
-        └── Conteúdo:
-            const parseCurrency = (valor) => {
-                if (typeof valor === 'number') return valor;
-                if (!valor || typeof valor !== 'string') return 0;
-                const numeroLimpo = String(valor).replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.');
-                return parseFloat(numeroLimpo) || 0;
-            };
-            
-            const parsePercentage = (valor) => {
-                if (typeof valor === 'number') return valor;
-                if (!valor || typeof valor !== 'string') return 0;
-                const numeroLimpo = String(valor).replace(',', '.');
-                return parseFloat(numeroLimpo) || 0;
-            };
-            
-            const formatForSheet = (num) => String(Number(num).toFixed(2)).replace('.', ',');
-            
-            export function gerarPagamentos(idOportunidade, dadosOportunidade) {
-              const pagamentos = [];
-            
-              const percentualImposto = parsePercentage(dadosOportunidade.percentual_imposto);
-              const percentualComissao = parsePercentage(dadosOportunidade.comissao);
-              const dataBase = new Date(dadosOportunidade.data_primeiro_pagamento_mensal + 'T00:00:00');
-              const userEmail = dadosOportunidade.user_email || "";
-            
-              const parcelasImplantacao = parseInt(dadosOportunidade.parcelas_implantacao, 10);
-              const valorImplantacao = parseCurrency(dadosOportunidade.valor_implantacao);
-            
-              const qtdMensalidades = parseInt(dadosOportunidade.qtde_mensalidades, 10);
-              const valorMensalidade = parseCurrency(dadosOportunidade.valor_mensalidade);
-            
-              let proximoIdPagamento = Date.now();
-            
-              // --- IMPLANTAÇÃO ---
-              if (valorImplantacao > 0 && parcelasImplantacao > 0) {
-                const valorUnitario = valorImplantacao / parcelasImplantacao;
-                const valorLiquido = valorUnitario * percentualComissao * (1 - percentualImposto);
-            
-                for (let i = 0; i < parcelasImplantacao; i++) {
-                  const dataPrevista = new Date(dataBase);
-                  dataPrevista.setMonth(dataPrevista.getMonth() + i);
-            
-                  pagamentos.push([
-                    String(proximoIdPagamento++),           // id_pagamento
-                    idOportunidade,                         // id_oportunidade
-                    "Implantação",                          // tipo
-                    String(i + 1),                          // num_parcela
-                    formatForSheet(valorUnitario),          // valor_bruto
-                    formatForSheet(percentualImposto),      // percentual_imposto
-                    formatForSheet(valorLiquido),           // valor_liquido_comissao
-                    dataPrevista.toISOString().split("T")[0], // data_prevista
-                    "",                                     // data_recebida
-                    "Previsto",                             // status
-                    userEmail                               // user_email
-                  ]);
-                }
-              }
-            
-              // --- MENSALIDADE ---
-              if (valorMensalidade > 0 && qtdMensalidades > 0) {
-                const valorLiquido = valorMensalidade * percentualComissao * (1 - percentualImposto);
-                // Mensalidades devem iniciar no mesmo mês da primeira parcela de implantação
-                // portanto não aplicamos nenhum deslocamento baseado nas parcelas de implantação
-                const offsetMeses = 0;
-            
-                for (let i = 0; i < qtdMensalidades; i++) {
-                  const dataPrevista = new Date(dataBase);
-                  dataPrevista.setMonth(dataPrevista.getMonth() + offsetMeses + i);
-            
-                  pagamentos.push([
-                    String(proximoIdPagamento++),           // id_pagamento
-                    idOportunidade,                         // id_oportunidade
-                    "Mensalidade",                          // tipo
-                    String(i + 1),                          // num_parcela
-                    formatForSheet(valorMensalidade),       // valor_bruto
-                    formatForSheet(percentualImposto),      // percentual_imposto
-                    formatForSheet(valorLiquido),           // valor_liquido_comissao
-                    dataPrevista.toISOString().split("T")[0], // data_prevista
-                    "",                                     // data_recebida
-                    "Previsto",                             // status
-                    userEmail                               // user_email
-                  ]);
-                }
-              }
-            
-              return pagamentos;
-            }
-            
         ──────────────────────────────
         📄 financeiroService.js
         └── Conteúdo:
@@ -5967,155 +5881,6 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                 }
             ──────────────────────────────
                 📁 oportunidades
-                📄 [id] (cópia).js
-                └── Conteúdo:
-                    // /pages/api/oportunidades/[id].js
-                    
-                    import { getSheetData, updateSheet } from "@/lib/googleSheetsService";
-                    import { gerarPagamentos } from "@/lib/financeiroService";
-                    import { getServerSession } from "next-auth/next";
-                    import { authOptions } from "../auth/[...nextauth]";
-                    
-                    export const dynamic = 'force-dynamic';
-                    
-                    const ABA_OPORTUNIDADES = "Oportunidades";
-                    const ABA_PAGAMENTOS = "Pagamentos";
-                    
-                    function parseCurrency(valor) {
-                      if (typeof valor === 'number') return valor;
-                      if (!valor || typeof valor !== 'string') return 0;
-                      const numeroLimpo = String(valor).replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.');
-                      return parseFloat(numeroLimpo) || 0;
-                    }
-                    
-                    function parsePercentage(valor) {
-                      if (typeof valor === 'number') return valor;
-                      if (!valor || typeof valor !== 'string') return 0;
-                      const numeroLimpo = String(valor).replace(',', '.');
-                      return parseFloat(numeroLimpo) || 0;
-                    }
-                    
-                    function formatForSheet(num) {
-                      return String(Number(num).toFixed(2)).replace('.', ',');
-                    }
-                    
-                    function pagamentosToRows(idOportunidade, pagamentos, dadosOportunidade) {
-                      const percImp = parsePercentage(dadosOportunidade.percentual_imposto);
-                      const percCom = parsePercentage(dadosOportunidade.comissao);
-                      const userEmail = dadosOportunidade.user_email || '';
-                    
-                      let nextId = Date.now();
-                      const contadores = {};
-                    
-                      return pagamentos.map(p => {
-                        const val = parseCurrency(p.valor_bruto);
-                        const liquido = val * percCom * (1 - percImp);
-                        const tipo = p.tipo;
-                        if (!contadores[tipo]) contadores[tipo] = 1;
-                        const numParcela = contadores[tipo]++;
-                    
-                        return [
-                          String(nextId++),
-                          idOportunidade,
-                          tipo,
-                          String(numParcela),
-                          formatForSheet(val),
-                          formatForSheet(percImp),
-                          formatForSheet(liquido),
-                          p.data_prevista,
-                          p.data_recebida || '',
-                          p.status || 'Previsto',
-                          userEmail
-                        ];
-                      });
-                    }
-                    
-                    
-                    export default async function handler(req, res) {
-                      const session = await getServerSession(req, res, authOptions);
-                      if (!session || !session.user || session.user.status !== 'aprovado') {
-                        return res.status(401).json({ error: "Não autorizado." });
-                      }
-                    
-                      const { id } = req.query;
-                    
-                      try {
-                        const { header: oppHeader, rows: oppRows } = await getSheetData(ABA_OPORTUNIDADES);
-                        const idIndex = oppHeader.indexOf("id");
-                        const userEmailIndex = oppHeader.indexOf("user_email");
-                        const oportunidadeRow = oppRows.find(row => String(row[idIndex]) === String(id));
-                    
-                        if (!oportunidadeRow) {
-                          return res.status(404).json({ error: `Oportunidade com ID ${id} não encontrada.` });
-                        }
-                        if (session.user.role !== 'admin' && oportunidadeRow[userEmailIndex] !== session.user.email) {
-                          return res.status(403).json({ error: "Você não tem permissão para acessar este recurso." });
-                        }
-                    
-                        switch (req.method) {
-                          case "GET": {
-                            const oportunidade = {};
-                            oppHeader.forEach((key, i) => {
-                              oportunidade[key] = oportunidadeRow[i] || "";
-                            });
-                            return res.status(200).json(oportunidade);
-                          }
-                    
-                          case "PUT": {
-                            const dadosAtualizados = req.body;
-                            
-                                    const pagamentosCustom = dadosAtualizados.pagamentos || null;
-                            delete dadosAtualizados.pagamentos;
-                            
-                            dadosAtualizados.user_email = oportunidadeRow[userEmailIndex];
-                            
-                            const rowIndexToUpdate = oppRows.findIndex(row => String(row[idIndex]) === String(id));
-                            const linhaAtualizadaArray = oppHeader.map(colName => dadosAtualizados[colName] || "");
-                            
-                            const novasLinhasOp = [...oppRows];
-                            novasLinhasOp[rowIndexToUpdate] = linhaAtualizadaArray;
-                            
-                            const pagamentosData = await getSheetData(ABA_PAGAMENTOS);
-                            const pagamentosRestantes = pagamentosData.rows.filter(row => String(row[pagamentosData.header.indexOf("id_oportunidade")]) !== String(id));
-                           
-                    
-                            const novosPagamentos = pagamentosCustom
-                              ? pagamentosToRows(id, pagamentosCustom, dadosAtualizados)
-                              : gerarPagamentos(id, dadosAtualizados);        
-                            
-                            await Promise.all([
-                                updateSheet(ABA_OPORTUNIDADES, [oppHeader, ...novasLinhasOp]),
-                                updateSheet(ABA_PAGAMENTOS, [pagamentosData.header, ...pagamentosRestantes, ...novosPagamentos])
-                            ]);
-                            
-                            return res.status(200).json({ success: true, id: id });
-                          }
-                    
-                          case "DELETE": {
-                            const pagamentosData = await getSheetData(ABA_PAGAMENTOS);
-                            const idPagIndex = pagamentosData.header.indexOf("id_oportunidade");
-                            const oportunidadesRestantes = oppRows.filter(row => String(row[idIndex]) !== String(id));
-                            const pagamentosRestantes = pagamentosData.rows.filter(row => String(row[idPagIndex]) !== String(id));
-                    
-                            await Promise.all([
-                                updateSheet(ABA_OPORTUNIDADES, [oppHeader, ...oportunidadesRestantes]),
-                                updateSheet(ABA_PAGAMENTOS, [pagamentosData.header, ...pagamentosRestantes])
-                            ]);
-                    
-                            return res.status(200).json({ success: true, message: `Oportunidade ${id} e seus pagamentos foram excluídos.` });
-                          }
-                    
-                          default:
-                            res.setHeader("Allow", ["GET", "PUT", "DELETE"]);
-                            return res.status(405).end(`Método ${req.method} não permitido.`);
-                        }
-                      } catch (error) {
-                        console.error(`Erro na API /api/oportunidades/${id}:`, error);
-                        res.status(500).json({ error: "Erro ao processar a requisição." });
-                      }
-                    }
-                    
-                ──────────────────────────────
                 📄 [id].js
                 └── Conteúdo:
                     // /pages/api/oportunidades/[id].js
@@ -6449,125 +6214,6 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                       } catch (error) {
                         console.error(`Erro na API /api/pagamentos/${idPagamento}:`, error);
                         res.status(500).json({ error: "Erro ao processar a requisição.", details: error.message });
-                      }
-                    }
-                ──────────────────────────────
-                📄 index (cópia).js
-                └── Conteúdo:
-                    // /pages/api/pagamentos/index.js
-                    
-                    import { getSheetData } from "@/lib/googleSheetsService";
-                    import { getServerSession } from "next-auth/next";
-                    import { authOptions } from "../auth/[...nextauth]";
-                    
-                    export const dynamic = 'force-dynamic';
-                    
-                    function rowsToObjects(header, rows) {
-                      return rows.map((row) => {
-                        const obj = {};
-                        header.forEach((key, i) => {
-                          obj[key.toLowerCase().replace(/ /g, '_')] = row[i] || "";
-                        });
-                        return obj;
-                      });
-                    }
-                    
-                    export default async function handler(req, res) {
-                      const session = await getServerSession(req, res, authOptions);
-                    
-                      if (!session || !session.user || session.user.status !== 'aprovado') {
-                        return res.status(401).json({ error: "Não autorizado." });
-                      }
-                      
-                      if (req.method !== 'GET') {
-                        res.setHeader('Allow', ['GET']);
-                        return res.status(405).end(`Método ${req.method} não permitido.`);
-                      }
-                    
-                      try {
-                        const { ano, mes, empresa, status, id_oportunidade, visao } = req.query;
-                    
-                        const [pagamentosData, oportunidadesData] = await Promise.all([
-                          getSheetData("Pagamentos"),
-                          getSheetData("Oportunidades"),
-                        ]);
-                        
-                        let pagamentos = rowsToObjects(pagamentosData.header, pagamentosData.rows);
-                        let oportunidades = rowsToObjects(oportunidadesData.header, oportunidadesData.rows);
-                    
-                        // --- LÓGICA DE SEGURANÇA ATUALIZADA ---
-                        if (session.user.role !== 'admin' || visao !== 'todos') {
-                          const userOportunidades = oportunidades.filter(op => op.user_email === session.user.email);
-                          const idsPermitidos = new Set(userOportunidades.map(op => op.id));
-                          oportunidades = userOportunidades;
-                          pagamentos = pagamentos.filter(p => idsPermitidos.has(p.id_oportunidade));
-                        }
-                        // --- FIM DA LÓGICA DE SEGURANÇA ---
-                    
-                        const infoOportunidades = new Map(oportunidades.map(op => [
-                            op.id, { 
-                              empresa: op.empresa, 
-                              comissao: op.comissao,
-                              percentual_imposto: op.percentual_imposto
-                            }
-                        ]));
-                        
-                        const totalParcelas = {};
-                        pagamentos.forEach(p => {
-                            const key = `${p.id_oportunidade}_${p.tipo}`;
-                            if (!totalParcelas[key]) totalParcelas[key] = 0;
-                            totalParcelas[key] += 1;
-                        });
-                    
-                        let pagamentosEnriquecidos = pagamentos.map(pagamento => {
-                          const infoOp = infoOportunidades.get(pagamento.id_oportunidade);
-                          const valorBruto = parseFloat(String(pagamento.valor_bruto || "0").replace(/\./g, "").replace(",", "."));
-                          const impostoPct = infoOp ? parseFloat(String(infoOp.percentual_imposto || "0").replace(",", ".")) : 0;
-                          const comissaoPct = infoOp ? parseFloat(String(infoOp.comissao || "0").replace(",", ".")) : 0.20;
-                          const liquidoVenda = valorBruto * (1 - impostoPct);
-                          const totalKey = `${pagamento.id_oportunidade}_${pagamento.tipo}`;
-                          const total = totalParcelas[totalKey] || 1;
-                          const parcelaFormatada = `${pagamento.num_parcela} de ${total}`;
-                          
-                          return {
-                            ...pagamento,
-                            empresa: infoOp ? infoOp.empresa : "Desconhecido",
-                            valor_bruto: valorBruto.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-                            liquido_venda: liquidoVenda.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-                            valor_liquido_comissao: (liquidoVenda * comissaoPct).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
-                            percentual_imposto: `${(impostoPct * 100).toFixed(0)}%`,
-                            percentual_comissao: `${(comissaoPct * 100).toFixed(0)}%`,
-                            parcela_formatada: parcelaFormatada,
-                          };
-                        });
-                    
-                        if (id_oportunidade) {
-                            pagamentosEnriquecidos = pagamentosEnriquecidos.filter(p => p.id_oportunidade === id_oportunidade);
-                        } else {
-                            if (ano && mes) {
-                                const anoNum = parseInt(ano, 10);
-                                const mesNum = parseInt(mes, 10);
-                                pagamentosEnriquecidos = pagamentosEnriquecidos.filter(p => {
-                                    if (!p.data_prevista) return false;
-                                    try {
-                                        const data = new Date(p.data_prevista + 'T00:00:00');
-                                        return data.getFullYear() === anoNum && data.getMonth() + 1 === mesNum;
-                                    } catch (e) { return false; }
-                                });
-                            }
-                            if (status) {
-                                pagamentosEnriquecidos = pagamentosEnriquecidos.filter(p => p.status && p.status.toLowerCase() === status.toLowerCase());
-                            }
-                            if (empresa) {
-                                pagamentosEnriquecidos = pagamentosEnriquecidos.filter(p => p.empresa && p.empresa.toLowerCase().includes(empresa.toLowerCase()));
-                            }
-                        }
-                    
-                        res.status(200).json(pagamentosEnriquecidos);
-                    
-                      } catch (error) {
-                        console.error("Erro na API /api/pagamentos:", error);
-                        res.status(500).json({ error: "Erro interno ao buscar pagamentos." });
                       }
                     }
                 ──────────────────────────────
@@ -8054,484 +7700,6 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                         </Card>
                     </div>
                 );
-            }
-        ──────────────────────────────
-        📄 oportunidades (cópia).js
-        └── Conteúdo:
-            import { useEffect, useState, useCallback } from "react";
-            import { Card, CardContent } from "@/components/ui/card";
-            import { addDays, addMonths, format, parseISO } from 'date-fns';
-            import { useSession } from "next-auth/react"; // Importa o hook de sessão
-            
-            const parseCurrency = (valor) => {
-              if (typeof valor === 'number') return valor;
-              if (!valor || typeof valor !== 'string') return 0;
-              const numeroLimpo = String(valor).replace(/R\$\s?/, '').replace(/\./g, '').replace(',', '.');
-              return parseFloat(numeroLimpo) || 0;
-            };
-            
-            const formatCurrency = (valor) => {
-              return (valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-            };
-            
-            const formInicial = {
-              empresa: "",
-              fonte: "Outbound",
-              fase_do_funil: "Proposta comercial",
-              data_entrada: "",
-              previsao_fechamento: "",
-              valor_implantacao: "",
-              parcelas_implantacao: "2",
-              valor_mensalidade: "",
-              qtde_mensalidades: "6",
-              data_fechamento: "",
-              data_primeiro_pagamento_mensal: "",
-              percentual_imposto: "0,19",
-              comissao_implantacao: "0,20",
-              comissao_mensalidade: "0,20",
-              observacao: "",
-            };
-            
-            
-            export default function OportunidadesPage() {
-              const { data: session } = useSession(); // Pega a sessão atual do usuário
-              const [config, setConfig] = useState({ fonte: [], fase_do_funil: [] });
-              const [form, setForm] = useState(formInicial);
-              const [lista, setLista] = useState([]);
-              const [loading, setLoading] = useState(true);
-              const [error, setError] = useState(null);
-              const [pagamentos, setPagamentos] = useState([]);
-              const [loadingPagamentos, setLoadingPagamentos] = useState(false);
-              const [totalImplantacao, setTotalImplantacao] = useState(0);
-            
-              // --- NOVO ESTADO PARA O FILTRO DE VISÃO ---
-              const [visao, setVisao] = useState('propria'); // 'propria' ou 'todos'
-            
-              const fetchData = useCallback(async () => {
-                if (!session) return; // Não faz nada se a sessão ainda não carregou
-            
-                setLoading(true);
-                setError(null);
-                try {
-                  // Adiciona o parâmetro de visão à chamada da API de oportunidades
-                  const params = new URLSearchParams();
-                  if (session.user.role === 'admin' && visao === 'todos') {
-                    params.append('visao', 'todos');
-                  }
-            
-                  const [configRes, listaRes] = await Promise.all([
-                    fetch("/api/configuracoes"),
-                    fetch(`/api/oportunidades?${params.toString()}`),
-                  ]);
-                  if (!configRes.ok || !listaRes.ok) throw new Error("Falha ao buscar dados do servidor.");
-                  const configData = await configRes.json();
-                  const listaData = await listaRes.json();
-                  setConfig(configData);
-                  setLista(listaData);
-                } catch (err) {
-                  setError(err.message);
-                } finally {
-                  setLoading(false);
-                }
-              }, [session, visao]); // Adiciona 'visao' e 'session' às dependências
-            const fetchPagamentos = async (idOpp) => {
-                setLoadingPagamentos(true);
-                try {
-                  const res = await fetch(`/api/pagamentos?id_oportunidade=${idOpp}`);
-                  if (res.ok) {
-                    const data = await res.json();
-                    setPagamentos(data.map(p => ({
-                      ...p,
-                      valor_bruto: parseCurrency(p.valor_bruto),
-                      fixed: false
-                    })));
-                    const total = data
-                      .filter(p => p.tipo === 'Implantação')
-                      .reduce((acc, p) => acc + parseCurrency(p.valor_bruto), 0);
-                    setTotalImplantacao(total);
-                  } else {
-                    setPagamentos([]);
-                    setTotalImplantacao(0);
-                  }
-                } catch (e) {
-                  setPagamentos([]);
-                  setTotalImplantacao(0);
-                } finally {
-                  setLoadingPagamentos(false);
-                }
-              };
-            
-              const redistributeImplantacao = (pagamentosLista) => {
-                const implantacoes = pagamentosLista.filter(p => p.tipo === 'Implantação');
-                if (implantacoes.length === 0) return pagamentosLista;
-            
-                const fixedTotal = implantacoes
-                  .filter(p => p.fixed)
-                  .reduce((acc, p) => acc + parseFloat(p.valor_bruto || 0), 0);
-            
-                const restantes = implantacoes.filter(p => !p.fixed);
-            
-                const restanteTotal = totalImplantacao - fixedTotal;
-                const valorCada = restantes.length > 0 ? restanteTotal / restantes.length : 0;
-            
-                let idx = 0;
-                return pagamentosLista.map(p => {
-                  if (p.tipo !== 'Implantação') return p;
-                  if (p.fixed) return p;
-                  return { ...p, valor_bruto: Number(valorCada.toFixed(2)), fixed: false };
-                });
-              };
-            
-              const handleValorChange = (index, valor) => {
-                setPagamentos(prev => {
-                  const novos = [...prev];
-                  const num = parseCurrency(valor);
-                  novos[index] = { ...novos[index], valor_bruto: num, fixed: true };
-                  return redistributeImplantacao(novos);
-                });
-              };
-            
-              const handleDataPrevistaChange = (index, valor) => {
-                setPagamentos(prev => {
-                  const novos = [...prev];
-             const pagamento = novos[index];
-                  novos[index] = { ...pagamento, data_prevista: valor };
-            
-                  if (valor && pagamento.tipo) {
-                    let baseDate;
-                    try {
-                      baseDate = parseISO(valor);
-                    } catch (e) {
-                      baseDate = null;
-                    }
-            
-                    if (baseDate) {
-                      for (let i = index + 1; i < novos.length; i++) {
-                        if (novos[i].tipo === pagamento.tipo) {
-                          baseDate = addMonths(baseDate, 1);
-                          novos[i] = { ...novos[i], data_prevista: format(baseDate, 'yyyy-MM-dd') };
-                        }
-                      }
-                    }
-                  }
-            
-                  return novos;
-                });
-              };
-            
-            
-            
-              const handleExcluirPagamento = (index) => {
-                setPagamentos(prev => {
-                  const novos = prev.filter((_, i) => i !== index);
-                  const implantacoes = novos.filter(p => p.tipo === 'Implantação');
-                  if (implantacoes.length === 0) {
-                    alert('É obrigatório manter ao menos uma parcela de implantação.');
-                    return prev;
-                  }
-                  return redistributeImplantacao(novos);
-                });
-              };
-              
-            
-              useEffect(() => {
-                fetchData();
-              }, [fetchData]);
-            
-              const handleSalvar = async () => {
-                const camposObrigatorios = [
-                  'empresa', 'fonte', 'fase_do_funil', 'data_entrada', 'previsao_fechamento',
-                  'valor_implantacao', 'parcelas_implantacao', 'valor_mensalidade',
-                  'qtde_mensalidades', 'data_primeiro_pagamento_mensal', 'percentual_imposto',
-                  'comissao_implantacao', 'comissao_mensalidade'
-                ];
-                for (const campo of camposObrigatorios) {
-                  if (!form[campo]) {
-                    const nomeCampoFormatado = campo.replace(/_/g, ' ').replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
-                    alert(`O campo "${nomeCampoFormatado}" é obrigatório.`);
-                    return;
-                  }
-                }
-                const isEditing = !!form.id;
-                const method = isEditing ? "PUT" : "POST";
-                const endpoint = isEditing ? `/api/oportunidades/${form.id}` : "/api/oportunidades";
-                const dadosParaSalvar = {
-                  ...form,
-                  percentual_imposto: String(form.percentual_imposto).replace('.', ','),
-                  comissao_implantacao: String(form.comissao_implantacao).replace('.', ','),
-                  comissao_mensalidade: String(form.comissao_mensalidade).replace('.', ',')
-                };
-                
-                if (isEditing) {
-                  dadosParaSalvar.pagamentos = pagamentos.map(p => ({
-                    tipo: p.tipo,
-                    valor_bruto: p.valor_bruto,
-                    data_prevista: p.data_prevista,
-                    data_recebida: p.data_recebida,
-                    status: p.status
-                  }));
-                }    
-                
-                try {
-                  const response = await fetch(endpoint, {
-                    method: method, headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(dadosParaSalvar),
-                  });
-                  if (!response.ok) {
-                    const errData = await response.json();
-                    throw new Error(errData.error || `Falha ao ${isEditing ? 'atualizar' : 'salvar'} oportunidade.`);
-                  }
-                  alert(`Oportunidade ${isEditing ? 'atualizada' : 'salva'} com sucesso!`);
-                  setForm(formInicial);
-                  setPagamentos([]);      
-                  fetchData();
-                } catch (err) {
-                  alert(`Erro: ${err.message}`);
-                }
-              };
-            
-              const handleDelete = async (id) => {
-                if (!confirm("Tem certeza que deseja excluir esta oportunidade?")) return;
-                try {
-                  const response = await fetch(`/api/oportunidades/${id}`, { method: "DELETE" });
-                  if (!response.ok) {
-                    const errData = await response.json();
-                    throw new Error(errData.error || "Falha ao excluir.");
-                  }
-                  setLista(prev => prev.filter(item => String(item.id) !== String(id)));
-                  alert("Oportunidade excluída com sucesso.");
-                } catch (err) {
-                  alert(`Erro: ${err.message}`);
-                }
-              };
-            
-              const handleEditar = (oportunidade) => {
-                setForm({
-                  ...formInicial,
-                  ...oportunidade,
-                  comissao_implantacao: oportunidade.comissao_implantacao || oportunidade.comissao || '',
-                  comissao_mensalidade: oportunidade.comissao_mensalidade || oportunidade.comissao || ''
-                });
-                fetchPagamentos(oportunidade.id); 
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              };
-            
-              const handleCancelEdit = () => {
-                setForm(formInicial);
-                setPagamentos([]);
-              };
-            
-              const atualizarCampo = (campo, valor) => {
-                const formAtualizado = { ...form, [campo]: valor };
-                if (campo === 'data_entrada' && valor) {
-                  try {
-                    const dataEntrada = parseISO(valor);
-                    formAtualizado.previsao_fechamento = format(addDays(dataEntrada, 60), 'yyyy-MM-dd');
-                    formAtualizado.data_primeiro_pagamento_mensal = format(addDays(dataEntrada, 70), 'yyyy-MM-dd');
-                  } catch (e) { console.error("Data inválida", e); }
-                }
-                setForm(formAtualizado);
-              };
-            
-              if (loading) return <div className="p-6 text-center">Carregando oportunidades...</div>;
-              if (error) return <div className="p-6 text-center text-red-500">Erro ao carregar dados: {error}</div>;
-            
-              return (
-                <div className="space-y-6">
-                  <div className="flex justify-between items-center">
-                    <h1 className="text-3xl font-bold text-gray-900">Cadastro de Oportunidades</h1>
-                    {session?.user?.role === 'admin' && (
-                      <div className="flex items-center gap-2">
-                        <label className="text-sm font-medium">Visão:</label>
-                        <select
-                          value={visao}
-                          onChange={(e) => setVisao(e.target.value)}
-                          className="p-2 border rounded bg-white"
-                        >
-                          <option value="propria">Minhas Oportunidades</option>
-                          <option value="todos">Todas as Oportunidades</option>
-                        </select>
-                      </div>
-                    )}
-                  </div>
-            
-                  <Card>
-                    <CardContent className="p-6 space-y-4">
-                      <h2 className="text-xl font-semibold">{form.id ? `Editando Oportunidade ID: ${form.id}` : 'Nova Oportunidade'}</h2>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div>
-                          <label className="text-xs font-medium text-gray-600">Empresa</label>
-                          <input placeholder="Nome da Empresa" className="w-full p-2 border rounded" value={form.empresa || ""} onChange={e => atualizarCampo("empresa", e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-600">Fonte</label>
-                          <select className="w-full p-2 border rounded bg-white" value={form.fonte || ""} onChange={e => atualizarCampo("fonte", e.target.value)}>
-                            <option value="">Selecione...</option>
-                            {(config.fonte || []).map(f => <option key={f} value={f}>{f}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-600">Fase do Funil</label>
-                          <select className="w-full p-2 border rounded bg-white" value={form.fase_do_funil || ""} onChange={e => atualizarCampo("fase_do_funil", e.target.value)}>
-                            <option value="">Selecione...</option>
-                            {(config.fase_do_funil || []).map(f => <option key={f} value={f}>{f}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-600">Data de Entrada</label>
-                          <input type="date" className="w-full p-2 border rounded" value={form.data_entrada || ""} onChange={e => atualizarCampo("data_entrada", e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-600">Previsão de Fechamento</label>
-                          <input type="date" className="w-full p-2 border rounded" value={form.previsao_fechamento || ""} onChange={e => atualizarCampo("previsao_fechamento", e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-600">Valor Implantação</label>
-                          <input placeholder="Ex: 10000,00" type="text" className="w-full p-2 border rounded" value={form.valor_implantacao || ""} onChange={e => atualizarCampo("valor_implantacao", e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-600">Parcelas Implantação</label>
-                          <input type="number" className="w-full p-2 border rounded" value={form.parcelas_implantacao || ""} onChange={e => atualizarCampo("parcelas_implantacao", e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-600">Valor Mensalidade</label>
-                          <input placeholder="Ex: 500,00" type="text" className="w-full p-2 border rounded" value={form.valor_mensalidade || ""} onChange={e => atualizarCampo("valor_mensalidade", e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-600">Qtde Mensalidades</label>
-                          <input type="number" className="w-full p-2 border rounded" value={form.qtde_mensalidades || ""} onChange={e => atualizarCampo("qtde_mensalidades", e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-600">Data de Fechamento</label>
-                          <input type="date" className="w-full p-2 border rounded" value={form.data_fechamento || ""} onChange={e => atualizarCampo("data_fechamento", e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-600">Data 1º Pag. Mensal</label>
-                          <input type="date" className="w-full p-2 border rounded" value={form.data_primeiro_pagamento_mensal || ""} onChange={e => atualizarCampo("data_primeiro_pagamento_mensal", e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-600">% Imposto</label>
-                          <input placeholder="Ex: 0,19" type="text" className="w-full p-2 border rounded" value={form.percentual_imposto || ""} onChange={e => atualizarCampo("percentual_imposto", e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-600">% Comissão Implantação</label>
-                          <input
-                            placeholder="Ex: 0,20"
-                            type="text"
-                            className="w-full p-2 border rounded"
-                            value={form.comissao_implantacao || ""}
-                            onChange={e => atualizarCampo("comissao_implantacao", e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-gray-600">% Comissão Mensalidade</label>
-                          <input
-                            placeholder="Ex: 0,20"
-                            type="text"
-                            className="w-full p-2 border rounded"
-                            value={form.comissao_mensalidade || ""}
-                            onChange={e => atualizarCampo("comissao_mensalidade", e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-gray-600">Observação</label>
-                        <textarea className="w-full p-2 border rounded" value={form.observacao || ""} onChange={e => atualizarCampo("observacao", e.target.value)} />
-                      </div>
-                      {form.id && (
-                        <div className="space-y-2">
-                          <h3 className="text-sm font-semibold">Pagamentos</h3>
-                          {loadingPagamentos ? (
-                            <p>Carregando pagamentos...</p>
-                          ) : (
-                            <table className="w-full text-xs text-left">
-                              <thead className="bg-gray-100">
-                                <tr>
-                                  <th className="p-2 border">Tipo</th>
-                                  <th className="p-2 border">Parcela</th>
-                                  <th className="p-2 border">Valor</th>
-                                  <th className="p-2 border">Data Prevista</th>
-                                  <th className="p-2 border text-center">Ações</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {pagamentos.map((p, idx) => (
-                                  <tr key={idx} className="border-b">
-                                    <td className="p-2 border">{p.tipo}</td>
-                                    <td className="p-2 border">{p.num_parcela}</td>
-                                    <td className="p-2 border">
-                                      <input type="number" className="w-full p-1 border rounded" value={p.valor_bruto} onChange={e => handleValorChange(idx, e.target.value)} />
-                                    </td>
-                                    
-                                    <td className="p-2 border">
-                                      <input
-                                        type="date"
-                                        className="w-full p-1 border rounded"
-                                        value={p.data_prevista || ''}
-                                        onChange={e => handleDataPrevistaChange(idx, e.target.value)}
-                                      />
-                                    </td>                        
-                                    
-                                    <td className="p-2 border text-center">
-                                      <button onClick={() => handleExcluirPagamento(idx)} className="text-red-600 hover:underline">Excluir</button>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          )}
-                          <p className="text-xs text-gray-500">Total Implantação: {formatCurrency(totalImplantacao)}</p>
-                        </div>
-                      )}
-                     
-                      <div className="flex justify-end gap-2 mt-4">
-                      
-                                  {form.id && (
-                          <button onClick={handleCancelEdit} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Cancelar</button>
-                        )}          
-                        <button onClick={() => { setForm(formInicial); setPagamentos([]); }} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Limpar</button>
-            
-                        <button onClick={handleSalvar} className="bg-violet-600 text-white px-4 py-2 rounded hover:bg-violet-700">
-                          {form.id ? 'Atualizar Oportunidade' : 'Salvar Nova Oportunidade'}
-                        </button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardContent className="p-4">
-                      <h2 className="text-xl font-semibold mb-4">Oportunidades Cadastradas</h2>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                          <thead className="bg-gray-100">
-                            <tr>
-                              <th className="p-2">ID</th>
-                              <th className="p-2">Empresa</th>
-                              <th className="p-2">Fonte</th>
-                              <th className="p-2">Fase</th>
-                              <th className="p-2 text-center">Ações</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {lista && lista.filter(opp => opp && opp.id).map(opp => (
-                              <tr key={opp.id} className="border-b hover:bg-gray-50">
-                                <td className="p-2">{opp.id}</td>
-                                <td className="p-2">{opp.empresa}</td>
-                                <td className="p-2">{opp.fonte}</td>
-                                <td className="p-2">{opp.fase_do_funil}</td>
-                                <td className="p-2 text-center space-x-2">
-                                  <button className="font-medium text-blue-600 hover:underline" onClick={() => handleEditar(opp)}>Editar</button>
-                                  <button className="font-medium text-red-600 hover:underline" onClick={() => handleDelete(opp.id)}>Excluir</button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              );
             }
         ──────────────────────────────
         📄 oportunidades.js
@@ -14583,7 +13751,8 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                 
                 function pagamentosToRows(idOportunidade, pagamentos, dadosOportunidade) {
                   const percImp = parsePercentage(dadosOportunidade.percentual_imposto);
-                  const percCom = parsePercentage(dadosOportunidade.comissao);
+                  const percComImplantacao = parsePercentage(dadosOportunidade.comissao_implantacao ?? dadosOportunidade.comissao);
+                  const percComMensalidade = parsePercentage(dadosOportunidade.comissao_mensalidade ?? dadosOportunidade.comissao);
                   const userEmail = dadosOportunidade.user_email || '';
                 
                   let nextId = Date.now();
@@ -14591,15 +13760,17 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                 
                   return pagamentos.map(p => {
                     const val = parseCurrency(p.valor_bruto);
+                    const tipo = p.tipo.toLowerCase();
+                    const percCom = tipo.includes("implanta") ? percComImplantacao : percComMensalidade;
                     const liquido = val * percCom * (1 - percImp);
-                    const tipo = p.tipo;
-                    if (!contadores[tipo]) contadores[tipo] = 1;
-                    const numParcela = contadores[tipo]++;
+                
+                    if (!contadores[p.tipo]) contadores[p.tipo] = 1;
+                    const numParcela = contadores[p.tipo]++;
                 
                     return [
                       String(nextId++),
                       idOportunidade,
-                      tipo,
+                      p.tipo,
                       String(numParcela),
                       formatForSheet(val),
                       formatForSheet(percImp),
@@ -14611,7 +13782,6 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                     ];
                   });
                 }
-                
                 
                 export default async function handler(req, res) {
                   const session = await getServerSession(req, res, authOptions);
@@ -14645,8 +13815,7 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                 
                       case "PUT": {
                         const dadosAtualizados = req.body;
-                        
-                                const pagamentosCustom = dadosAtualizados.pagamentos || null;
+                        const pagamentosCustom = dadosAtualizados.pagamentos || null;
                         delete dadosAtualizados.pagamentos;
                         
                         dadosAtualizados.user_email = oportunidadeRow[userEmailIndex];
@@ -14660,7 +13829,6 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                         const pagamentosData = await getSheetData(ABA_PAGAMENTOS);
                         const pagamentosRestantes = pagamentosData.rows.filter(row => String(row[pagamentosData.header.indexOf("id_oportunidade")]) !== String(id));
                        
-                
                         const novosPagamentos = pagamentosCustom
                           ? pagamentosToRows(id, pagamentosCustom, dadosAtualizados)
                           : gerarPagamentos(id, dadosAtualizados);        
@@ -14922,23 +14090,24 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                     let pagamentos = rowsToObjects(pagamentosData.header, pagamentosData.rows);
                     let oportunidades = rowsToObjects(oportunidadesData.header, oportunidadesData.rows);
                 
-                    // --- LÓGICA DE SEGURANÇA ATUALIZADA ---
+                    // --- LÓGICA DE SEGURANÇA ---
                     if (session.user.role !== 'admin' || visao !== 'todos') {
                       const userOportunidades = oportunidades.filter(op => op.user_email === session.user.email);
                       const idsPermitidos = new Set(userOportunidades.map(op => op.id));
                       oportunidades = userOportunidades;
                       pagamentos = pagamentos.filter(p => idsPermitidos.has(p.id_oportunidade));
                     }
-                    // --- FIM DA LÓGICA DE SEGURANÇA ---
                 
                     const infoOportunidades = new Map(oportunidades.map(op => [
                         op.id, { 
                           empresa: op.empresa, 
-                          comissao: op.comissao,
-                          percentual_imposto: op.percentual_imposto
+                          percentual_imposto: op.percentual_imposto,
+                          comissao_implantacao: op.comissao_implantacao,
+                          comissao_mensalidade: op.comissao_mensalidade,
+                          comissao: op.comissao // fallback se antigo
                         }
                     ]));
-                    
+                
                     const totalParcelas = {};
                     pagamentos.forEach(p => {
                         const key = `${p.id_oportunidade}_${p.tipo}`;
@@ -14950,7 +14119,15 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                       const infoOp = infoOportunidades.get(pagamento.id_oportunidade);
                       const valorBruto = parseFloat(String(pagamento.valor_bruto || "0").replace(/\./g, "").replace(",", "."));
                       const impostoPct = infoOp ? parseFloat(String(infoOp.percentual_imposto || "0").replace(",", ".")) : 0;
-                      const comissaoPct = infoOp ? parseFloat(String(infoOp.comissao || "0").replace(",", ".")) : 0.20;
+                
+                      const comissaoImplantacao = infoOp?.comissao_implantacao || infoOp?.comissao || "0,00";
+                      const comissaoMensalidade = infoOp?.comissao_mensalidade || infoOp?.comissao || "0,00";
+                
+                      const tipo = pagamento.tipo.toLowerCase();
+                      const comissaoPct = parseFloat(
+                        String(tipo.includes("implanta") ? comissaoImplantacao : comissaoMensalidade).replace(",", ".")
+                      );
+                
                       const liquidoVenda = valorBruto * (1 - impostoPct);
                       const totalKey = `${pagamento.id_oportunidade}_${pagamento.tipo}`;
                       const total = totalParcelas[totalKey] || 1;
@@ -14997,6 +14174,7 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                     res.status(500).json({ error: "Erro interno ao buscar pagamentos." });
                   }
                 }
+                
             ──────────────────────────────
             📁 relatorios
             📄 metas-vs-realizado.js
@@ -16372,6 +15550,52 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
           return (valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
         };
         
+        const gerarPagamentosLocal = (dados) => {
+          const pagamentos = [];
+          const baseStr = dados.data_primeiro_pagamento_mensal;
+          if (!baseStr) return pagamentos;
+          const baseDate = new Date(baseStr + 'T00:00:00');
+        
+          const parcelasImpl = parseInt(dados.parcelas_implantacao, 10);
+          const valorImpl = parseCurrency(dados.valor_implantacao);
+          if (parcelasImpl > 0 && valorImpl > 0) {
+            const valorUnit = valorImpl / parcelasImpl;
+            for (let i = 0; i < parcelasImpl; i++) {
+              const d = new Date(baseDate); d.setMonth(d.getMonth() + i);
+              pagamentos.push({
+                tipo: 'Implantação',
+                num_parcela: String(i + 1),
+                valor_bruto: Number(valorUnit.toFixed(2)),
+                data_prevista: d.toISOString().split('T')[0],
+                data_recebida: '',
+                status: 'Previsto',
+                fixed: false,
+                percentual: ''
+              });
+            }
+          }
+        
+          const qtdMens = parseInt(dados.qtde_mensalidades, 10);
+          const valorMens = parseCurrency(dados.valor_mensalidade);
+          if (qtdMens > 0 && valorMens > 0) {
+            for (let i = 0; i < qtdMens; i++) {
+              const d = new Date(baseDate); d.setMonth(d.getMonth() + i);
+              pagamentos.push({
+                tipo: 'Mensalidade',
+                num_parcela: String(i + 1),
+                valor_bruto: Number(valorMens.toFixed(2)),
+                data_prevista: d.toISOString().split('T')[0],
+                data_recebida: '',
+                status: 'Previsto',
+                fixed: false,
+                percentual: ''
+              });
+            }
+          }
+        
+          return pagamentos;
+        };
+        
         // Objeto com o estado inicial do formulário
         const formInicial = {
           empresa: "",
@@ -16401,6 +15625,7 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
           const [pagamentos, setPagamentos] = useState([]);
           const [loadingPagamentos, setLoadingPagamentos] = useState(false);
           const [totalImplantacao, setTotalImplantacao] = useState(0);
+          const [pagamentosCarregados, setPagamentosCarregados] = useState(false);
         
           // --- NOVO ESTADO PARA O FILTRO DE VISÃO ---
           const [visao, setVisao] = useState('propria'); // 'propria' ou 'todos'
@@ -16435,6 +15660,7 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
         
           const fetchPagamentos = async (idOpp) => {
             setLoadingPagamentos(true);
+            setPagamentosCarregados(false);
             try {
               const res = await fetch(`/api/pagamentos?id_oportunidade=${idOpp}`);
               if (res.ok) {
@@ -16442,12 +15668,14 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                 setPagamentos(data.map(p => ({
                   ...p,
                   valor_bruto: parseCurrency(p.valor_bruto),
-                  fixed: false
+                  fixed: false,
+                  percentual: ''
                 })));
                 const total = data
                   .filter(p => p.tipo === 'Implantação')
                   .reduce((acc, p) => acc + parseCurrency(p.valor_bruto), 0);
                 setTotalImplantacao(total);
+                setPagamentosCarregados(true);
               } else {
                 setPagamentos([]);
                 setTotalImplantacao(0);
@@ -16464,18 +15692,33 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
             const implantacoes = pagamentosLista.filter(p => p.tipo === 'Implantação');
             if (implantacoes.length === 0) return pagamentosLista;
         
-            const fixedTotal = implantacoes
-              .filter(p => p.fixed)
+            let totalPercentual = 0;
+            const ajustadosPercentual = pagamentosLista.map(p => {
+              if (p.tipo !== 'Implantação') return p;
+              const perc = parseFloat(p.percentual);
+              if (!isNaN(perc) && perc > 0) {
+                const valor = totalImplantacao * perc / 100;
+                totalPercentual += valor;
+                return { ...p, valor_bruto: Number(valor.toFixed(2)), fixed: true };
+              }
+              return p;
+            });
+        
+            const implantacoesAtual = ajustadosPercentual.filter(p => p.tipo === 'Implantação');
+        
+            const fixedTotal = implantacoesAtual
+              .filter(p => p.fixed && (!p.percentual || parseFloat(p.percentual) === 0))
               .reduce((acc, p) => acc + parseFloat(p.valor_bruto || 0), 0);
         
-            const restantes = implantacoes.filter(p => !p.fixed);
+            const restantes = implantacoesAtual.filter(p => !p.fixed && (!p.percentual || parseFloat(p.percentual) === 0));
         
-            const restanteTotal = totalImplantacao - fixedTotal;
+            const restanteTotal = totalImplantacao - fixedTotal - totalPercentual;
             const valorCada = restantes.length > 0 ? restanteTotal / restantes.length : 0;
         
-            let idx = 0;
-            return pagamentosLista.map(p => {
+            return ajustadosPercentual.map(p => {
               if (p.tipo !== 'Implantação') return p;
+              const perc = parseFloat(p.percentual);
+              if (!isNaN(perc) && perc > 0) return p;
               if (p.fixed) return p;
               return { ...p, valor_bruto: Number(valorCada.toFixed(2)), fixed: false };
             });
@@ -16485,7 +15728,16 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
             setPagamentos(prev => {
               const novos = [...prev];
               const num = parseCurrency(valor);
-              novos[index] = { ...novos[index], valor_bruto: num, fixed: true };
+              novos[index] = { ...novos[index], valor_bruto: num, fixed: true, percentual: '' };
+              return redistributeImplantacao(novos);
+            });
+          };
+        
+          const handlePercentualChange = (index, valor) => {
+            setPagamentos(prev => {
+              const novos = [...prev];
+              const pct = valor === '' ? '' : String(valor).replace(',', '.');
+              novos[index] = { ...novos[index], percentual: pct, fixed: pct !== '' };
               return redistributeImplantacao(novos);
             });
           };
@@ -16533,6 +15785,18 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
           useEffect(() => {
             fetchData();
           }, [fetchData]);
+        
+          useEffect(() => {
+            if (form.valor_implantacao) {
+              setTotalImplantacao(parseCurrency(form.valor_implantacao));
+            }
+          }, [form.valor_implantacao]);
+        
+          useEffect(() => {
+            if (!pagamentosCarregados || !form.id) return;
+            setPagamentos(gerarPagamentosLocal(form));
+            setTotalImplantacao(parseCurrency(form.valor_implantacao));
+          }, [form.parcelas_implantacao, form.qtde_mensalidades]);
         
           const handleSalvar = async () => {
             const camposObrigatorios = [
@@ -16609,6 +15873,7 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
               comissao_implantacao: oportunidade.comissao_implantacao || oportunidade.comissao || '',
               comissao_mensalidade: oportunidade.comissao_mensalidade || oportunidade.comissao || ''
             });
+            setPagamentosCarregados(false);
             fetchPagamentos(oportunidade.id);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           };
@@ -16616,6 +15881,7 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
           const handleCancelEdit = () => {
             setForm(formInicial);
             setPagamentos([]);
+            setPagamentosCarregados(false);
           };
         
           const atualizarCampo = (campo, valor) => {
@@ -16747,6 +16013,7 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                               <th className="p-2 border">Tipo</th>
                               <th className="p-2 border">Parcela</th>
                               <th className="p-2 border">Valor</th>
+                              <th className="p-2 border">% do Total</th>
                               <th className="p-2 border">Data Prevista</th>
                               <th className="p-2 border text-center">Ações</th>
                             </tr>
@@ -16758,6 +16025,9 @@ Pasta base: /home/Alessandra/next-tailwind-sistema-comissoes
                                 <td className="p-2 border">{p.num_parcela}</td>
                                 <td className="p-2 border">
                                   <input type="number" className="w-full p-1 border rounded" value={p.valor_bruto} onChange={e => handleValorChange(idx, e.target.value)} />
+                                </td>
+                                <td className="p-2 border">
+                                  <input type="number" className="w-full p-1 border rounded" value={p.percentual || ''} onChange={e => handlePercentualChange(idx, e.target.value)} />
                                 </td>
         
                                 <td className="p-2 border">
