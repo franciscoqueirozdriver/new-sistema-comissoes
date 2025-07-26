@@ -206,6 +206,7 @@ export default function PagamentosPage() {
                                         <th className="p-2">Empresa</th>
                                         <th className="p-2">Tipo</th>
                                         <th className="p-2">Parcela</th>
+                                        <th className="p-2">Valor Bruto</th>
                                         <th className="p-2">Valor Comissão</th>
                                         <th className="p-2">Data Recebida</th>
                                         <th className="p-2">Status</th>
@@ -219,6 +220,7 @@ export default function PagamentosPage() {
                                             <td className="p-2">{p.empresa}</td>
                                             <td className="p-2">{p.tipo}</td>
                                             <td className="p-2">{p.num_parcela}</td>
+                                            <td className="p-2">{p.valor_bruto}</td>
                                             <td className="p-2">{p.valor_liquido_comissao}</td>
                                             <td className="p-2">{p.data_recebida}</td>
                                             <td className="p-2">{p.status}</td>
