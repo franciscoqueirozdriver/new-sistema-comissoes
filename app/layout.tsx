@@ -1,5 +1,5 @@
 import './globals.css';
-import { GlobalImportProvider } from '../context/GlobalImportContext';
+import { GlobalImportProvider } from './context/GlobalImportContext';
 import ImportModal from '../components/ImportModal';
 
 export const metadata = {

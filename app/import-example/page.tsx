@@ -1,5 +1,5 @@
 'use client';
-import { useGlobalImport } from '../../context/GlobalImportContext';
+import { useGlobalImport } from '../context/GlobalImportContext';
 
 export default function HomePage() {
   const { openModal } = useGlobalImport();

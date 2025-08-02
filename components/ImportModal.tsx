@@ -1,7 +1,9 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import DataGrid from 'react-data-grid';
-import { useGlobalImport } from '../context/GlobalImportContext';
+import { AgGridReact } from 'ag-grid-react';
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-alpine.css';
+import { useGlobalImport } from '@/app/context/GlobalImportContext';
 
 export default function ImportModal() {
   const {
@@ -30,15 +32,18 @@ export default function ImportModal() {
     setData(json);
   }
 
-  const columns = (data?.columns || []).map((c, idx) => ({ key: String(idx), name: c, editable: true }));
-  const gridRows = rows.map(r => {
+  const columnDefs = (data?.columns || []).map((c, idx) => ({ headerName: c, field: String(idx), editable: true }));
+  const rowData = rows.map(r => {
     const obj: Record<string, string> = {};
     r.forEach((cell, idx) => (obj[String(idx)] = cell));
     return obj;
   });
 
-  function onRowsChange(newRows: any[]) {
-    const updated = newRows.map(r => columns.map(col => r[col.key] || ''));
+  function onCellValueChanged(params: any) {
+    const updated = [...rows];
+    const rowIndex = params.node.rowIndex;
+    const colIndex = parseInt(params.colDef.field as string, 10);
+    updated[rowIndex][colIndex] = params.newValue;
     setRows(updated);
   }
 
@@ -83,8 +88,15 @@ export default function ImportModal() {
         <input type="file" accept=".xlsx,.csv,.pdf,.png,.jpg,.jpeg" onChange={handleFile} className="mb-4" />
         {data && (
           <>
-            <div className="mb-4 max-h-64 overflow-auto">
-              <DataGrid columns={columns} rows={gridRows} onRowsChange={onRowsChange} />
+            <div className="mb-4">
+              <div className="ag-theme-alpine max-h-64 overflow-auto" style={{ width: '100%' }}>
+                <AgGridReact
+                  columnDefs={columnDefs}
+                  rowData={rowData}
+                  onCellValueChanged={onCellValueChanged}
+                  defaultColDef={{ resizable: true, editable: true }}
+                />
+              </div>
             </div>
             <div className="mb-4">
               <h3 className="font-semibold mb-2">Map Columns</h3>
