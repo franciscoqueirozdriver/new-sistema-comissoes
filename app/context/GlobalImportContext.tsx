@@ -17,7 +17,7 @@ interface GlobalImportContextValue {
   requiredFields: string[];
   availableFields: string[];
   openImportModal: (type: DataType) => void;
-  closeImportModal: () => void;
+  closeModal: () => void;
   setData: (data: ImportData | null) => void;
   setMapping: (map: Record<string, string>) => void;
   targetEndpoint: string;
@@ -37,7 +37,12 @@ export function GlobalImportProvider({ children }: { children: React.ReactNode }
     setData(null);
     setIsOpen(true);
   };
-  const closeImportModal = () => setIsOpen(false);
+  const closeModal = () => {
+    setIsOpen(false);
+    setData(null);
+    setDataType(null);
+    setMapping({});
+  };
 
   const config = dataType ? importConfig[dataType] : { requiredFields: [], mappings: [] };
 
@@ -51,7 +56,7 @@ export function GlobalImportProvider({ children }: { children: React.ReactNode }
         requiredFields: config.requiredFields,
         availableFields: config.mappings,
         openImportModal,
-        closeImportModal,
+        closeModal,
         setData,
         setMapping,
         targetEndpoint: '/api/commissions/import',

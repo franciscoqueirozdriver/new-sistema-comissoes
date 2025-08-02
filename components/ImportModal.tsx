@@ -75,7 +75,6 @@ export default function ImportModal() {
     if (res.ok) {
       alert('Import successful');
       closeModal();
-      setData(null);
     } else {
       alert('Import failed');
     }
@@ -85,7 +84,13 @@ export default function ImportModal() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded p-4 w-full max-w-5xl">
+      <div className="relative bg-white rounded p-4 w-full max-w-5xl">
+        <button
+          onClick={closeModal}
+          className="absolute top-2 right-2 bg-red-500 text-white px-3 py-1 rounded"
+        >
+          Close
+        </button>
         <h2 className="text-xl font-bold mb-4">
           Import {dataType ? dataType.charAt(0).toUpperCase() + dataType.slice(1) : 'Data'}
         </h2>
@@ -133,9 +138,6 @@ export default function ImportModal() {
             </button>
           </>
         )}
-        <button onClick={closeModal} className="ml-2 text-sm text-gray-500">
-          Close
-        </button>
       </div>
     </div>
   );
