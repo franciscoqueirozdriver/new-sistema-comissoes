@@ -10,10 +10,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <GlobalImportProvider
-          requiredFields={['Client', 'Value', 'Date', 'Meetings']}
-          targetEndpoint="/api/commissions/import"
-        >
+        <GlobalImportProvider>
           {children}
           <ImportModal />
         </GlobalImportProvider>

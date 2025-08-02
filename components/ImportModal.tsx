@@ -9,11 +9,13 @@ export default function ImportModal() {
   const {
     isOpen,
     closeModal,
+    dataType,
     data,
     setData,
     mapping,
     setMapping,
     requiredFields,
+    availableFields,
     targetEndpoint,
   } = useGlobalImport();
   const [rows, setRows] = useState<string[][]>(data?.rows || []);
@@ -64,7 +66,7 @@ export default function ImportModal() {
   async function handleSubmit() {
     if (!data) return;
     if (!validate()) return;
-    const payload = { data: { columns: data.columns, rows }, mapping };
+    const payload = { dataType, data: { columns: data.columns, rows }, mapping };
     const res = await fetch(targetEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -84,7 +86,12 @@ export default function ImportModal() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className="bg-white rounded p-4 w-full max-w-5xl">
-        <h2 className="text-xl font-bold mb-4">Import Data</h2>
+        <h2 className="text-xl font-bold mb-4">
+          Import {dataType ? dataType.charAt(0).toUpperCase() + dataType.slice(1) : 'Data'}
+        </h2>
+        <p className="mb-4 text-sm text-gray-600">
+          Upload a file to import {dataType || 'data'} and map columns accordingly.
+        </p>
         <input type="file" accept=".xlsx,.csv,.pdf,.png,.jpg,.jpeg" onChange={handleFile} className="mb-4" />
         {data && (
           <>
@@ -109,7 +116,7 @@ export default function ImportModal() {
                     onChange={e => handleMappingChange(col, e.target.value)}
                   >
                     <option value="">Select field</option>
-                    {requiredFields.map(f => (
+                    {availableFields.map(f => (
                       <option key={f} value={f}>
                         {f}
                       </option>
