@@ -50,7 +50,9 @@ export default function ImportModal() {
     form.append('file', selectedFile);
     const res = await fetch('/api/import', { method: 'POST', body: form });
     const json = await res.json();
-    setData(json);
+    const parsedColumns = json.columns || [];
+    const parsedRows = json.rows || [];
+    setData({ columns: parsedColumns, rows: parsedRows });
   }
 
   const columnDefs = (data?.columns || []).map((c, idx) => ({ headerName: c, field: String(idx), editable: true }));
@@ -152,7 +154,7 @@ export default function ImportModal() {
             Continuar
           </button>
         )}
-        {data && (
+        {data && data.columns && data.rows && (
           <>
             <div className="mb-4">
               <div className="ag-theme-alpine max-h-64 overflow-auto" style={{ width: '100%' }}>
@@ -166,7 +168,7 @@ export default function ImportModal() {
             </div>
             <div className="mb-4">
               <h3 className="font-semibold mb-2">Mapear Colunas</h3>
-              {data.columns.map(col => (
+              {data?.columns?.map(col => (
                 <div key={col} className="flex items-center mb-2">
                   <span className="w-1/2">{col}</span>
                   <select
