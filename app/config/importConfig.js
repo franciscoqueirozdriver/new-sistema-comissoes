@@ -22,15 +22,15 @@ export const importConfig = {
   },
   dsr: {
     title: 'Importar Holerites (DSR)',
-    requiredFields: ['Colaborador', 'Período', 'Salário Base', 'Comissão', 'DSR', 'Data de Pagamento'],
-    mappings: ['Colaborador', 'Período', 'Salário Base', 'Comissão', 'DSR', 'Data de Pagamento'],
+    requiredFields: ['mes', 'salario_base', 'comissao', 'dsr', 'dias_dsr', 'data_pagamento'],
+    mappings: ['mes', 'salario_base', 'comissao', 'dsr', 'dias_dsr', 'data_pagamento'],
     validationMessages: {
-      Colaborador: 'O campo Colaborador é obrigatório.',
-      'Período': 'O campo Período é obrigatório.',
-      'Salário Base': 'O Salário Base é obrigatório.',
-      'Comissão': 'O campo Comissão é obrigatório.',
-      'DSR': 'O campo DSR é obrigatório.',
-      'Data de Pagamento': 'A Data de Pagamento é obrigatória.'
+      mes: 'O campo mês é obrigatório.',
+      salario_base: 'O campo salário base é obrigatório.',
+      comissao: 'O campo comissão é obrigatório.',
+      dsr: 'O campo DSR é obrigatório.',
+      dias_dsr: 'O campo dias de DSR é obrigatório.',
+      data_pagamento: 'O campo data de pagamento é obrigatório.'
     }
   }
 };

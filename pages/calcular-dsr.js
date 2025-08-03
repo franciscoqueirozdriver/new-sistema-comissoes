@@ -4,6 +4,8 @@ import { useSession } from 'next-auth/react';
 import RelatorioDSRTable from '@/components/RelatorioDSRTable';
 import useDiasUteis from '@/lib/useDiasUteis';
 import { useImportContext } from '@/app/context/GlobalImportContext';
+import { calcularDSRporPagamento, formatCurrency } from '@/lib/calculoDSRporPagamento';
+import { normalizeMes } from '@/lib/mesUtils';
 
 const getAnoMes = (date) => {
   const ano = date.getFullYear();
@@ -18,6 +20,7 @@ export default function CalcularDSRPage() {
   const [pagamentos, setPagamentos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [dsrPago, setDsrPago] = useState(0);
 
   const [mostrar, setMostrar] = useState({
     comissaoBruto: false,
@@ -59,6 +62,19 @@ export default function CalcularDSRPage() {
   }, [fetchPagamentos]);
 
   useEffect(() => {
+    if (!session) return;
+    const mesNorm = normalizeMes(mesAno);
+    const params = new URLSearchParams({ mes: mesNorm, user_email: session.user.email });
+    fetch(`/api/holerites?${params.toString()}`)
+      .then(r => r.json())
+      .then(data => {
+        const total = data.reduce((sum, row) => sum + parseFloat(String(row.dsr).replace(',', '.')) || 0, 0);
+        setDsrPago(total);
+      })
+      .catch(() => setDsrPago(0));
+  }, [mesAno, session]);
+
+  useEffect(() => {
     fetch('https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome')
       .then(r => r.json())
       .then(setUfs)
@@ -79,6 +95,18 @@ export default function CalcularDSRPage() {
 
   if (status === 'loading') return <div className="p-6 text-center">Carregando...</div>;
   if (status === 'unauthenticated') return <div className="p-6 text-center">Por favor, faça o login para continuar.</div>;
+
+  const dsrTotais = pagamentos.reduce((acc, p) => {
+    const calc = calcularDSRporPagamento(p, {
+      usarComSabado,
+      diasComSabado,
+      diasSemSabado,
+      diasDescanso,
+    });
+    acc.dsrLiquido += calc.dsrLiquido;
+    return acc;
+  }, { dsrLiquido: 0 });
+  const diferenca = dsrTotais.dsrLiquido - dsrPago;
 
   return (
     <div className="space-y-6">
@@ -153,6 +181,14 @@ export default function CalcularDSRPage() {
               diasDescanso={diasDescanso}
             />
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-4 space-y-1">
+          <p>DSR correto: {formatCurrency(dsrTotais.dsrLiquido)}</p>
+          <p>DSR pago: {formatCurrency(dsrPago)}</p>
+          <p>Diferença: <span className={diferenca >= 0 ? 'text-green-600' : 'text-red-600'}>{formatCurrency(diferenca)}</span></p>
         </CardContent>
       </Card>
     </div>

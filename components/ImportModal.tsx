@@ -5,6 +5,8 @@ import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { useImportContext } from '@/app/context/GlobalImportContext';
 import { importConfig } from '@/app/config/importConfig';
+import { useSession } from 'next-auth/react';
+import { normalizeMes } from '@/lib/mesUtils';
 
 export default function ImportModal() {
   const {
@@ -17,10 +19,12 @@ export default function ImportModal() {
     setMapping,
     targetEndpoint,
   } = useImportContext();
+  const { data: session } = useSession();
   const config = dataType ? importConfig[dataType] : { title: '', requiredFields: [], mappings: [], validationMessages: {} };
   const requiredFields = config.requiredFields || [];
   const availableFields = config.mappings || [];
   const [rows, setRows] = useState<string[][]>(data?.rows || []);
+  const [fileName, setFileName] = useState('');
 
   useEffect(() => {
     setRows(data?.rows || []);
@@ -29,6 +33,7 @@ export default function ImportModal() {
   async function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    setFileName(file.name);
     const form = new FormData();
     form.append('file', file);
     const res = await fetch('/api/import', { method: 'POST', body: form });
@@ -69,6 +74,36 @@ export default function ImportModal() {
   async function handleSubmit() {
     if (!data) return;
     if (!validate()) return;
+
+    if (dataType === 'dsr') {
+      const mappedRows = rows.map(r => {
+        const obj: Record<string, any> = {};
+        data.columns.forEach((col, idx) => {
+          const field = mapping[col];
+          if (field) obj[field] = r[idx];
+        });
+        if (obj.mes) obj.mes = normalizeMes(obj.mes);
+        if (obj.dias_dsr !== undefined) {
+          obj.dias_dsr = parseInt(String(obj.dias_dsr).replace(/[^0-9]/g, ''), 10) || 0;
+        }
+        obj.user_email = session?.user?.email || '';
+        obj.fonte_arquivo = fileName;
+        return obj;
+      });
+      const res = await fetch(targetEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: mappedRows }),
+      });
+      if (res.ok) {
+        alert('Import successful');
+        closeModal();
+      } else {
+        alert('Import failed');
+      }
+      return;
+    }
+
     const payload = { dataType, data: { columns: data.columns, rows }, mapping };
     const res = await fetch(targetEndpoint, {
       method: 'POST',

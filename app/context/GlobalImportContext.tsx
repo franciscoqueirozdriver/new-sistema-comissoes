@@ -30,11 +30,19 @@ export function GlobalImportProvider({ children }: { children: React.ReactNode }
   const [dataType, setDataType] = useState<DataType | null>(null);
   const [data, setData] = useState<ImportData | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [targetEndpoint, setTargetEndpoint] = useState('/api/commissions/import');
+
+  const endpointMap: Record<DataType, string> = {
+    pagamentos: '/api/commissions/import',
+    oportunidades: '/api/commissions/import',
+    dsr: '/api/holerites',
+  };
 
   const openImportModal = (type: DataType) => {
     setDataType(type);
     setMapping({});
     setData(null);
+    setTargetEndpoint(endpointMap[type]);
     setIsOpen(true);
   };
   const closeModal = () => {
@@ -59,7 +67,7 @@ export function GlobalImportProvider({ children }: { children: React.ReactNode }
         closeModal,
         setData,
         setMapping,
-        targetEndpoint: '/api/commissions/import',
+        targetEndpoint,
       }}
     >
       {children}
