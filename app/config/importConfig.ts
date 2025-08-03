@@ -1,4 +1,11 @@
-export const importConfig = {
+export interface ImportConfigItem {
+  title: string;
+  requiredFields: string[];
+  mappings: string[];
+  validationMessages?: Record<string, string>;
+}
+
+export const importConfig: Record<string, ImportConfigItem> = {
   pagamentos: {
     title: 'Importar Pagamentos',
     requiredFields: ['Cliente', 'Valor', 'Data'],

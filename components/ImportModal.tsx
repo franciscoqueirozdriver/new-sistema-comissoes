@@ -4,7 +4,7 @@ import { AgGridReact } from 'ag-grid-react';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { useImportContext } from '@/app/context/GlobalImportContext';
-import { importConfig } from '@/app/config/importConfig';
+import { importConfig, ImportConfigItem } from '@/app/config/importConfig';
 import { useSession } from 'next-auth/react';
 import { normalizeMes } from '@/lib/mesUtils';
 
@@ -20,7 +20,9 @@ export default function ImportModal() {
     targetEndpoint,
   } = useImportContext();
   const { data: session } = useSession();
-  const config = dataType ? importConfig[dataType] : { title: '', requiredFields: [], mappings: [], validationMessages: {} };
+  const config: ImportConfigItem = dataType
+    ? importConfig[dataType]
+    : { title: '', requiredFields: [], mappings: [], validationMessages: {} };
   const requiredFields = config.requiredFields || [];
   const availableFields = config.mappings || [];
   const [rows, setRows] = useState<string[][]>(data?.rows || []);
@@ -91,7 +93,10 @@ export default function ImportModal() {
     const mapped = Object.values(mapping);
     const missingFields = requiredFields.filter(f => !mapped.includes(f));
     if (missingFields.length) {
-      const messages = missingFields.map(f => config.validationMessages?.[f] || `${f} é obrigatório.`);
+      const vm = config.validationMessages as Record<string, string> | undefined;
+      const messages = missingFields.map(
+        f => vm?.[f] || `${f} é obrigatório.`
+      );
       alert(messages.join('\n'));
       return false;
     }
