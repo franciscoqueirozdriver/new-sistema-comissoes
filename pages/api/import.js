@@ -80,12 +80,12 @@ export default async function handler(req, res) {
         }
 
         res.status(200).json(result);
+        return resolve();
       } catch (e) {
         console.error('Import error:', e);
         res.status(500).json({ error: e.message });
+        return resolve();
       }
-
-      resolve();
     });
   });
 }

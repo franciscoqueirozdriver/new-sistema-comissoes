@@ -54,9 +54,10 @@ export default function ImportModal() {
       if (!res.ok) throw new Error('Falha no upload');
       const json = await res.json();
       console.log('Resposta do import API:', json);
-      const parsedColumns = json.columns || [];
-      const parsedRows = json.rows || [];
+      const parsedColumns: string[] = json.columns || [];
+      const parsedRows: string[][] = json.rows || [];
       setData({ columns: parsedColumns, rows: parsedRows });
+      console.log('Estado data atualizado:', { columns: parsedColumns, rows: parsedRows });
     } catch (err: any) {
       alert(err.message || 'Erro ao processar o arquivo');
     }
@@ -111,12 +112,12 @@ export default function ImportModal() {
         obj.fonte_arquivo = fileName;
         return obj;
       });
+      console.log('Enviando para holerites:', mappedRows);
       const res = await fetch(targetEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rows: mappedRows }),
       });
-      console.log('Enviando para holerites:', mappedRows);
       if (res.ok) {
         alert('Import successful');
         closeModal();
