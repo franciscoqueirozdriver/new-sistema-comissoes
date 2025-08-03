@@ -1,7 +1,7 @@
 import xlsx from 'xlsx';
 import pdfParse from 'pdf-parse';
 import Tesseract from 'tesseract.js';
-import { fromBuffer } from 'pdf2pic';
+import { PDFDocument, PDFName, PDFDict, PDFRawStream } from 'pdf-lib';
 import formidable from 'formidable';
 import fs from 'fs';
 
@@ -58,10 +58,11 @@ export default async function handler(req, res) {
             result = { columns, rows };
           } else {
             console.log('OCR realizado no PDF escaneado');
-            const convert = fromBuffer(buffer, { density: 300, savePath: '/tmp', format: 'png' });
-            const page1 = await convert(1);
-            const imageBuffer = await fs.promises.readFile(page1.path);
-            const ocr = await Tesseract.recognize(imageBuffer, 'eng');
+            const img = await extractImageFromPdf(buffer);
+            if (!img) {
+              throw new Error('No images found in PDF');
+            }
+            const ocr = await Tesseract.recognize(img, 'eng');
             const lines = ocr.data.text.split('\n').filter(Boolean);
             const rows = lines.map(line => line.split(/[\s,;]+/));
             const columns = rows.shift() || [];
@@ -88,5 +89,25 @@ export default async function handler(req, res) {
       }
     });
   });
+}
+
+async function extractImageFromPdf(buffer) {
+  try {
+    const pdfDoc = await PDFDocument.load(buffer);
+    const [firstPage] = pdfDoc.getPages();
+    const xObject = firstPage.node.Resources().lookup(PDFName.of('XObject'), PDFDict);
+    if (!xObject) return null;
+    const entries = xObject.entries();
+    for (const [_, value] of entries) {
+      const obj = xObject.lookup(value);
+      if (obj instanceof PDFRawStream) {
+        return obj.getContents();
+      }
+    }
+    return null;
+  } catch (err) {
+    console.error('extractImageFromPdf error:', err);
+    return null;
+  }
 }
 

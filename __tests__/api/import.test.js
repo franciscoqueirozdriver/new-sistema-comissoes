@@ -1,13 +1,14 @@
 import path from 'path';
+import fs from 'fs';
 import request from 'supertest';
 import handler from '../../pages/api/import';
 import pdfParse from 'pdf-parse';
 import Tesseract from 'tesseract.js';
-import { fromBuffer } from 'pdf2pic';
+import { PDFDocument } from 'pdf-lib';
 
 jest.mock('pdf-parse');
 jest.mock('tesseract.js', () => ({ recognize: jest.fn() }));
-jest.mock('pdf2pic', () => ({ fromBuffer: jest.fn() }));
+jest.mock('pdf-lib');
 
 const server = (req, res) => handler(req, res);
 
@@ -32,14 +33,25 @@ describe('/api/import', () => {
 
   test('processa PDF escaneado com OCR', async () => {
     pdfParse.mockResolvedValue({ text: '' });
-    fromBuffer.mockReturnValue(() => Promise.resolve({ path: fixtures('scan.png') }));
+    PDFDocument.load.mockResolvedValue({
+      getPages: () => [{
+        node: {
+          Resources: () => ({
+            lookup: () => ({
+              entries: () => [[null, { contents: fs.readFileSync(fixtures('scan.png')) }]],
+              lookup: () => ({ contents: fs.readFileSync(fixtures('scan.png')) }),
+            }),
+          }),
+        },
+      }],
+    });
     Tesseract.recognize.mockResolvedValue({ data: { text: 'Col1 Col2\nVal1 Val2' } });
 
     const res = await request(server)
       .post('/api/import')
       .attach('file', fixtures('scan.pdf'));
 
-    expect(fromBuffer).toHaveBeenCalled();
+    expect(PDFDocument.load).toHaveBeenCalled();
     expect(Tesseract.recognize).toHaveBeenCalled();
     expect(res.body.parsedData.columns).toEqual(['Col1', 'Col2']);
     expect(res.body.success).toBe(true);
