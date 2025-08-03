@@ -1,6 +1,6 @@
 'use client';
 import React, { createContext, useContext, useState } from 'react';
-import { importConfig } from '@/lib/importConfig';
+import { importConfig } from '@/app/config/importConfig';
 
 export interface ImportData {
   columns: string[];

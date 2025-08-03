@@ -4,6 +4,7 @@ import { AgGridReact } from 'ag-grid-react';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { useImportContext } from '@/app/context/GlobalImportContext';
+import { importConfig } from '@/app/config/importConfig';
 
 export default function ImportModal() {
   const {
@@ -14,10 +15,11 @@ export default function ImportModal() {
     setData,
     mapping,
     setMapping,
-    requiredFields,
-    availableFields,
     targetEndpoint,
   } = useImportContext();
+  const config = dataType ? importConfig[dataType] : { title: '', requiredFields: [], mappings: [], validationMessages: {} };
+  const requiredFields = config.requiredFields || [];
+  const availableFields = config.mappings || [];
   const [rows, setRows] = useState<string[][]>(data?.rows || []);
 
   useEffect(() => {
@@ -55,9 +57,10 @@ export default function ImportModal() {
 
   function validate() {
     const mapped = Object.values(mapping);
-    const missing = requiredFields.some(f => !mapped.includes(f));
-    if (missing) {
-      alert('Please map all required fields');
+    const missingFields = requiredFields.filter(f => !mapped.includes(f));
+    if (missingFields.length) {
+      const messages = missingFields.map(f => config.validationMessages?.[f] || `${f} é obrigatório.`);
+      alert(messages.join('\n'));
       return false;
     }
     return true;
@@ -91,12 +94,8 @@ export default function ImportModal() {
         >
           Close
         </button>
-        <h2 className="text-xl font-bold mb-4">
-          Import {dataType ? dataType.charAt(0).toUpperCase() + dataType.slice(1) : 'Data'}
-        </h2>
-        <p className="mb-4 text-sm text-gray-600">
-          Upload a file to import {dataType || 'data'} and map columns accordingly.
-        </p>
+        <h2 className="text-xl font-bold mb-4">{config.title}</h2>
+        <p className="mb-4 text-sm text-gray-600">Carregue um arquivo e mapeie as colunas para continuar.</p>
         <input type="file" accept=".xlsx,.csv,.pdf,.png,.jpg,.jpeg" onChange={handleFile} className="mb-4" />
         {data && (
           <>
@@ -111,7 +110,7 @@ export default function ImportModal() {
               </div>
             </div>
             <div className="mb-4">
-              <h3 className="font-semibold mb-2">Map Columns</h3>
+              <h3 className="font-semibold mb-2">Mapear Colunas</h3>
               {data.columns.map(col => (
                 <div key={col} className="flex items-center mb-2">
                   <span className="w-1/2">{col}</span>
@@ -120,7 +119,7 @@ export default function ImportModal() {
                     value={mapping[col] || ''}
                     onChange={e => handleMappingChange(col, e.target.value)}
                   >
-                    <option value="">Select field</option>
+                    <option value="">Selecione o campo</option>
                     {availableFields.map(f => (
                       <option key={f} value={f}>
                         {f}
