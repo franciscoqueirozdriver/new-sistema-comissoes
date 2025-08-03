@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useState, useMemo } from "react";
 import { parseISO, format as formatDate } from 'date-fns';
 import { Card, CardContent } from "@/components/ui/card";
