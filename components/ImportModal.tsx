@@ -4,9 +4,16 @@ import { AgGridReact } from 'ag-grid-react';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { useImportContext } from '@/app/context/GlobalImportContext';
-import { importConfig, ImportConfigItem } from '@/app/config/importConfig';
+import { importConfig } from '@/app/config/importConfig';
 import { useSession } from 'next-auth/react';
 import { normalizeMes } from '@/lib/mesUtils';
+
+interface ImportConfig {
+  title: string;
+  requiredFields: string[];
+  mappings: string[];
+  validationMessages?: Record<string, string>;
+}
 
 export default function ImportModal() {
   const {
@@ -20,7 +27,7 @@ export default function ImportModal() {
     targetEndpoint,
   } = useImportContext();
   const { data: session } = useSession();
-  const config: ImportConfigItem = dataType
+  const config: ImportConfig = dataType
     ? importConfig[dataType]
     : { title: '', requiredFields: [], mappings: [], validationMessages: {} };
   const requiredFields = config.requiredFields || [];
