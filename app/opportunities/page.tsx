@@ -1,16 +1,16 @@
 'use client';
-import { useGlobalImport } from '@/app/context/GlobalImportContext';
+import { useImportContext } from '@/app/context/GlobalImportContext';
 
 export default function OpportunitiesPage() {
-  const { openImportModal } = useGlobalImport();
+  const { openImportModal } = useImportContext();
   return (
     <div className="p-4">
-      <h1 className="text-2xl mb-4">Opportunities</h1>
+      <h1 className="text-2xl mb-4">Oportunidades</h1>
       <button
-        onClick={() => openImportModal('opportunities')}
-        className="bg-blue-600 text-white px-4 py-2 rounded"
+        onClick={() => openImportModal('oportunidades')}
+        className="bg-green-500 text-white px-4 py-2 rounded mb-4"
       >
-        Import Opportunities
+        Importar Oportunidades
       </button>
     </div>
   );

@@ -7,7 +7,7 @@ export interface ImportData {
   rows: string[][];
 }
 
-type DataType = 'payments' | 'opportunities';
+type DataType = 'pagamentos' | 'oportunidades' | 'dsr';
 
 interface GlobalImportContextValue {
   isOpen: boolean;
@@ -67,8 +67,11 @@ export function GlobalImportProvider({ children }: { children: React.ReactNode }
   );
 }
 
-export function useGlobalImport() {
+export function useImportContext() {
   const ctx = useContext(GlobalImportContext);
-  if (!ctx) throw new Error('useGlobalImport must be used within GlobalImportProvider');
+  if (!ctx) throw new Error('useImportContext must be used within GlobalImportProvider');
   return ctx;
 }
+
+// Backwards compatibility alias
+export const useGlobalImport = useImportContext;

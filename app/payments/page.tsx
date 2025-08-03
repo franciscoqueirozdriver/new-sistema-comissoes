@@ -1,16 +1,16 @@
 'use client';
-import { useGlobalImport } from '@/app/context/GlobalImportContext';
+import { useImportContext } from '@/app/context/GlobalImportContext';
 
 export default function PaymentsPage() {
-  const { openImportModal } = useGlobalImport();
+  const { openImportModal } = useImportContext();
   return (
     <div className="p-4">
-      <h1 className="text-2xl mb-4">Payments</h1>
+      <h1 className="text-2xl mb-4">Pagamentos</h1>
       <button
-        onClick={() => openImportModal('payments')}
-        className="bg-green-600 text-white px-4 py-2 rounded"
+        onClick={() => openImportModal('pagamentos')}
+        className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
       >
-        Import Payments
+        Importar Pagamentos
       </button>
     </div>
   );

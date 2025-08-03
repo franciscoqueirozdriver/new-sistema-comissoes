@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useSession } from 'next-auth/react';
 import RelatorioDSRTable from '@/components/RelatorioDSRTable';
 import useDiasUteis from '@/lib/useDiasUteis';
+import { useImportContext } from '@/app/context/GlobalImportContext';
 
 const getAnoMes = (date) => {
   const ano = date.getFullYear();
@@ -12,6 +13,7 @@ const getAnoMes = (date) => {
 
 export default function CalcularDSRPage() {
   const { data: session, status } = useSession();
+  const { openImportModal } = useImportContext();
   const [mesAno, setMesAno] = useState(getAnoMes(new Date()));
   const [pagamentos, setPagamentos] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -82,6 +84,12 @@ export default function CalcularDSRPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Cálculo de DSR</h1>
+        <button
+          onClick={() => openImportModal('dsr')}
+          className="bg-purple-500 text-white px-4 py-2 rounded mb-4"
+        >
+          Importar Holerites (DSR)
+        </button>
       </div>
 
       <Card>

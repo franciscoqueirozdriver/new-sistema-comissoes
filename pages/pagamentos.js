@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useSession } from "next-auth/react";
+import { useImportContext } from '@/app/context/GlobalImportContext';
 
 // Função para formatar a data no padrão AAAA-MM para o input de mês
 const getAnoMes = (date) => {
@@ -11,6 +12,7 @@ const getAnoMes = (date) => {
 
 export default function PagamentosPage() {
     const { data: session, status: sessionStatus } = useSession();
+    const { openImportModal } = useImportContext();
     const [pagamentos, setPagamentos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -114,6 +116,12 @@ export default function PagamentosPage() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900">Gerenciamento de Pagamentos</h1>
+                <button
+                    onClick={() => openImportModal('pagamentos')}
+                    className="bg-blue-500 text-white px-4 py-2 rounded mb-4"
+                >
+                    Importar Pagamentos
+                </button>
             </div>
             
             <Card>

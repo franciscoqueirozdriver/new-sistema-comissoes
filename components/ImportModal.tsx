@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
-import { useGlobalImport } from '@/app/context/GlobalImportContext';
+import { useImportContext } from '@/app/context/GlobalImportContext';
 
 export default function ImportModal() {
   const {
@@ -17,7 +17,7 @@ export default function ImportModal() {
     requiredFields,
     availableFields,
     targetEndpoint,
-  } = useGlobalImport();
+  } = useImportContext();
   const [rows, setRows] = useState<string[][]>(data?.rows || []);
 
   useEffect(() => {
