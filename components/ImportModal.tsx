@@ -25,17 +25,29 @@ export default function ImportModal() {
   const availableFields = config.mappings || [];
   const [rows, setRows] = useState<string[][]>(data?.rows || []);
   const [fileName, setFileName] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   useEffect(() => {
     setRows(data?.rows || []);
   }, [data]);
 
-  async function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedFile(null);
+      setFileName('');
+    }
+  }, [isOpen]);
+
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] || null;
+    setSelectedFile(file);
+    setFileName(file?.name || '');
+  }
+
+  async function handleUpload() {
+    if (!selectedFile) return;
     const form = new FormData();
-    form.append('file', file);
+    form.append('file', selectedFile);
     const res = await fetch('/api/import', { method: 'POST', body: form });
     const json = await res.json();
     setData(json);
@@ -131,7 +143,15 @@ export default function ImportModal() {
         </button>
         <h2 className="text-xl font-bold mb-4">{config.title}</h2>
         <p className="mb-4 text-sm text-gray-600">Carregue um arquivo e mapeie as colunas para continuar.</p>
-        <input type="file" accept=".xlsx,.csv,.pdf,.png,.jpg,.jpeg" onChange={handleFile} className="mb-4" />
+        <input type="file" accept=".xlsx,.csv,.pdf,.png,.jpg,.jpeg" onChange={handleFileChange} className="mb-4" />
+        {selectedFile && !data && (
+          <button
+            onClick={handleUpload}
+            className="bg-green-600 text-white px-4 py-2 rounded mt-4"
+          >
+            Continuar
+          </button>
+        )}
         {data && (
           <>
             <div className="mb-4">

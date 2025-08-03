@@ -5,7 +5,8 @@ import { normalizeMes } from '@/lib/mesUtils';
 
 export const dynamic = 'force-dynamic';
 
-const SHEET_NAME = 'Holerite';
+const SHEET_NAME = 'Holerites';
+const RANGE = 'Holerites!A:H';
 const HEADER = ['mes','salario_base','comissao','dsr','dias_dsr','data_pagamento','user_email','fonte_arquivo'];
 
 function rowsToObjects(header, rows){
@@ -48,7 +49,7 @@ export default async function handler(req, res){
     if (req.method === 'GET') {
       const { mes, user_email } = req.query;
       const normalizedMes = normalizeMes(mes);
-      const { header, rows } = await getSheetData(SHEET_NAME);
+      const { header, rows } = await getSheetData(RANGE);
       const objs = rowsToObjects(header, rows);
       const filtered = objs.filter(r => {
         const mesOk = normalizedMes ? normalizeMes(r.mes) === normalizedMes : true;
