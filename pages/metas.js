@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useSession } from "next-auth/react"; // Importa o hook de sessão
