@@ -27,6 +27,7 @@ export default async function handler(req, res){
     if (req.method === 'POST') {
       const { rows } = req.body; // array of objects
       if (!Array.isArray(rows)) return res.status(400).json({ error: 'Corpo inválido' });
+      console.log('Salvando holerite:', rows);
       const { header, rows: existing } = await getSheetData(RANGE);
       const existingObjs = rowsToObjects(header, existing);
       const toAppend = [];

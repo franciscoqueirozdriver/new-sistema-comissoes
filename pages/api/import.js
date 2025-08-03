@@ -25,6 +25,9 @@ export default async function handler(req, res) {
         return resolve();
       }
 
+      console.log('Import API - Campos:', fields);
+      console.log('Import API - Arquivos recebidos:', files);
+
       const file = Array.isArray(files.file) ? files.file[0] : files.file;
       if (!file) {
         res.status(400).json({ error: 'No file uploaded' });

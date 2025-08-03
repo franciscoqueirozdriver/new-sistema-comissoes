@@ -49,9 +49,11 @@ export default function ImportModal() {
     const form = new FormData();
     form.append('file', selectedFile);
     try {
+      console.log('Iniciando upload:', selectedFile?.name);
       const res = await fetch('/api/import', { method: 'POST', body: form });
       if (!res.ok) throw new Error('Falha no upload');
       const json = await res.json();
+      console.log('Resposta do import API:', json);
       const parsedColumns = json.columns || [];
       const parsedRows = json.rows || [];
       setData({ columns: parsedColumns, rows: parsedRows });
@@ -114,6 +116,7 @@ export default function ImportModal() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rows: mappedRows }),
       });
+      console.log('Enviando para holerites:', mappedRows);
       if (res.ok) {
         alert('Import successful');
         closeModal();
@@ -124,6 +127,7 @@ export default function ImportModal() {
     }
 
     const payload = { dataType, data: { columns: data.columns, rows }, mapping };
+    console.log('Enviando payload para import:', payload);
     const res = await fetch(targetEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
