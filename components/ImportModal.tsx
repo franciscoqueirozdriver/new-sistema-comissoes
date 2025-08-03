@@ -1,0 +1,235 @@
+'use client';
+import React, { useEffect, useState } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-alpine.css';
+import { useImportContext } from '@/app/context/GlobalImportContext';
+import { importConfig } from '@/app/config/importConfig';
+import { useSession } from 'next-auth/react';
+import { normalizeMes } from '@/lib/mesUtils';
+
+interface ImportConfig {
+  title: string;
+  requiredFields: string[];
+  mappings: string[];
+  validationMessages?: Record<string, string>;
+}
+
+export default function ImportModal() {
+  const {
+    isOpen,
+    closeModal,
+    dataType,
+    data,
+    setData,
+    mapping,
+    setMapping,
+    targetEndpoint,
+  } = useImportContext();
+  const { data: session } = useSession();
+  const config: ImportConfig = dataType
+    ? importConfig[dataType]
+    : { title: '', requiredFields: [], mappings: [], validationMessages: {} };
+  const requiredFields = config.requiredFields || [];
+  const availableFields = config.mappings || [];
+  const [rows, setRows] = useState<string[][]>(data?.rows || []);
+  const [fileName, setFileName] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    setRows(data?.rows || []);
+  }, [data]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedFile(null);
+      setFileName('');
+    }
+  }, [isOpen]);
+
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] || null;
+    setSelectedFile(file);
+    setFileName(file?.name || '');
+  }
+
+  async function handleUpload() {
+    if (!selectedFile) return;
+    const form = new FormData();
+    form.append('file', selectedFile);
+    try {
+      console.log('Iniciando upload:', selectedFile?.name);
+      const res = await fetch('/api/import', { method: 'POST', body: form });
+      if (!res.ok) throw new Error('Falha no upload');
+      const json = await res.json();
+      console.log('Resposta do import API:', json);
+      const parsed = json.parsedData || { columns: [], rows: [] };
+      const parsedColumns: string[] = parsed.columns || [];
+      const parsedRows: string[][] = parsed.rows || [];
+      setData({ columns: parsedColumns, rows: parsedRows });
+      const saved = typeof window !== 'undefined' ? localStorage.getItem(`mapping-${dataType}`) : null;
+      if (saved) {
+        setMapping(JSON.parse(saved));
+      }
+      console.log('Estado data atualizado:', { columns: parsedColumns, rows: parsedRows });
+    } catch (err: any) {
+      alert(err.message || 'Erro ao processar o arquivo');
+    }
+  }
+
+  const columnDefs = (data?.columns || []).map((c, idx) => ({ headerName: c, field: String(idx), editable: true }));
+  const rowData = rows.map(r => {
+    const obj: Record<string, string> = {};
+    r.forEach((cell, idx) => (obj[String(idx)] = cell));
+    return obj;
+  });
+
+  function onCellValueChanged(params: any) {
+    const updated = [...rows];
+    const rowIndex = params.node.rowIndex;
+    const colIndex = parseInt(params.colDef.field as string, 10);
+    updated[rowIndex][colIndex] = params.newValue;
+    setRows(updated);
+  }
+
+  function handleMappingChange(col: string, value: string) {
+    setMapping({ ...mapping, [col]: value });
+  }
+
+  function validate() {
+    const mapped = Object.values(mapping);
+    const missingFields = requiredFields.filter(f => !mapped.includes(f));
+    if (missingFields.length) {
+      const vm = config.validationMessages as Record<string, string> | undefined;
+      const messages = missingFields.map(
+        f => vm?.[f] || `${f} é obrigatório.`
+      );
+      alert(messages.join('\n'));
+      return false;
+    }
+    return true;
+  }
+
+  async function handleSubmit() {
+    if (!data) return;
+    if (!validate()) return;
+
+    if (dataType === 'dsr') {
+      const mappedRows = rows.map(r => {
+        const obj: Record<string, any> = {};
+        data.columns.forEach((col, idx) => {
+          const field = mapping[col];
+          if (field) obj[field] = r[idx];
+        });
+        if (obj.mes) obj.mes = normalizeMes(obj.mes);
+        if (obj.dias_dsr !== undefined) {
+          obj.dias_dsr = parseInt(String(obj.dias_dsr).replace(/[^0-9]/g, ''), 10) || 0;
+        }
+        obj.user_email = session?.user?.email || '';
+        obj.fonte_arquivo = fileName;
+        return obj;
+      });
+      console.log('Enviando para holerites:', mappedRows);
+      const res = await fetch(targetEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: mappedRows }),
+      });
+      const resJson = await res.json().catch(() => null);
+      if (res.ok) {
+        if (dataType) {
+          localStorage.setItem(`mapping-${dataType}`, JSON.stringify(mapping));
+        }
+        alert('Import successful');
+        closeModal();
+      } else {
+        alert(resJson?.error || 'Import failed');
+      }
+      return;
+    }
+
+    const payload = { dataType, data: { columns: data.columns, rows }, mapping };
+    console.log('Enviando payload para import:', payload);
+    const res = await fetch(targetEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const resJson = await res.json().catch(() => null);
+    if (res.ok) {
+      if (dataType) {
+        localStorage.setItem(`mapping-${dataType}`, JSON.stringify(mapping));
+      }
+      alert('Import successful');
+      closeModal();
+    } else {
+      alert(resJson?.error || 'Import failed');
+    }
+  }
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="relative bg-white rounded p-4 w-full max-w-5xl">
+        <button
+          onClick={closeModal}
+          className="absolute top-2 right-2 bg-red-500 text-white px-3 py-1 rounded"
+        >
+          Close
+        </button>
+        <h2 className="text-xl font-bold mb-4">{config.title}</h2>
+        <p className="mb-4 text-sm text-gray-600">Carregue um arquivo e mapeie as colunas para continuar.</p>
+        <input type="file" accept=".xlsx,.csv,.pdf,.png,.jpg,.jpeg" onChange={handleFileChange} className="mb-4" />
+        {selectedFile && !data && (
+          <button
+            onClick={handleUpload}
+            className="bg-green-600 text-white px-4 py-2 rounded mt-4"
+          >
+            Continuar
+          </button>
+        )}
+        {data && data.columns && data.rows && (
+          <>
+            <div className="mb-4">
+              <div className="ag-theme-alpine max-h-64 overflow-auto" style={{ width: '100%' }}>
+                <AgGridReact
+                  columnDefs={columnDefs}
+                  rowData={rowData}
+                  onCellValueChanged={onCellValueChanged}
+                  defaultColDef={{ resizable: true, editable: true }}
+                />
+              </div>
+            </div>
+            <div className="mb-4">
+              <h3 className="font-semibold mb-2">Mapear Colunas</h3>
+              {data?.columns?.map(col => (
+                <div key={col} className="flex items-center mb-2">
+                  <span className="w-1/2">{col}</span>
+                  <select
+                    className="w-1/2 border p-1"
+                    value={mapping[col] || ''}
+                    onChange={e => handleMappingChange(col, e.target.value)}
+                  >
+                    <option value="">Selecione o campo</option>
+                    {availableFields.map(f => (
+                      <option key={f} value={f}>
+                        {f}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={handleSubmit}
+              className="bg-blue-600 text-white px-4 py-2 rounded"
+            >
+              Confirmar Import
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

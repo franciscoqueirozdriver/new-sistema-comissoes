@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { addDays, addMonths, format, parseISO } from 'date-fns';
 import { useSession } from "next-auth/react"; // Importa o hook de sessão
+import { useImportContext } from '@/app/context/GlobalImportContext';
 
 const parseCurrency = (valor) => {
   if (typeof valor === 'number') return valor;
@@ -81,6 +82,7 @@ const formInicial = {
 
 export default function OportunidadesPage() {
   const { data: session } = useSession(); // Pega a sessão atual do usuário
+  const { openImportModal } = useImportContext();
   const [config, setConfig] = useState({ fonte: [], fase_do_funil: [] });
   const [form, setForm] = useState(formInicial);
   const [lista, setLista] = useState([]);
@@ -367,19 +369,27 @@ export default function OportunidadesPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Cadastro de Oportunidades</h1>
-        {session?.user?.role === 'admin' && (
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Visão:</label>
-            <select
-              value={visao}
-              onChange={(e) => setVisao(e.target.value)}
-              className="p-2 border rounded bg-white"
-            >
-              <option value="propria">Minhas Oportunidades</option>
-              <option value="todos">Todas as Oportunidades</option>
-            </select>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {session?.user?.role === 'admin' && (
+            <>
+              <label className="text-sm font-medium">Visão:</label>
+              <select
+                value={visao}
+                onChange={(e) => setVisao(e.target.value)}
+                className="p-2 border rounded bg-white"
+              >
+                <option value="propria">Minhas Oportunidades</option>
+                <option value="todos">Todas as Oportunidades</option>
+              </select>
+            </>
+          )}
+          <button
+            onClick={() => openImportModal('oportunidades')}
+            className="bg-green-500 text-white px-4 py-2 rounded mb-4"
+          >
+            Importar Oportunidades
+          </button>
+        </div>
       </div>
 
       <Card>
