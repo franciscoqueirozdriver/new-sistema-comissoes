@@ -54,9 +54,14 @@ export default function ImportModal() {
       if (!res.ok) throw new Error('Falha no upload');
       const json = await res.json();
       console.log('Resposta do import API:', json);
-      const parsedColumns: string[] = json.columns || [];
-      const parsedRows: string[][] = json.rows || [];
+      const parsed = json.parsedData || { columns: [], rows: [] };
+      const parsedColumns: string[] = parsed.columns || [];
+      const parsedRows: string[][] = parsed.rows || [];
       setData({ columns: parsedColumns, rows: parsedRows });
+      const saved = typeof window !== 'undefined' ? localStorage.getItem(`mapping-${dataType}`) : null;
+      if (saved) {
+        setMapping(JSON.parse(saved));
+      }
       console.log('Estado data atualizado:', { columns: parsedColumns, rows: parsedRows });
     } catch (err: any) {
       alert(err.message || 'Erro ao processar o arquivo');
@@ -118,11 +123,15 @@ export default function ImportModal() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rows: mappedRows }),
       });
+      const resJson = await res.json().catch(() => null);
       if (res.ok) {
+        if (dataType) {
+          localStorage.setItem(`mapping-${dataType}`, JSON.stringify(mapping));
+        }
         alert('Import successful');
         closeModal();
       } else {
-        alert('Import failed');
+        alert(resJson?.error || 'Import failed');
       }
       return;
     }
@@ -134,11 +143,15 @@ export default function ImportModal() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    const resJson = await res.json().catch(() => null);
     if (res.ok) {
+      if (dataType) {
+        localStorage.setItem(`mapping-${dataType}`, JSON.stringify(mapping));
+      }
       alert('Import successful');
       closeModal();
     } else {
-      alert('Import failed');
+      alert(resJson?.error || 'Import failed');
     }
   }
 

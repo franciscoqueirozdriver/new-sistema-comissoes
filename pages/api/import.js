@@ -3,9 +3,6 @@ import pdfParse from 'pdf-parse';
 import Tesseract from 'tesseract.js';
 import formidable from 'formidable';
 import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import { convert } from 'pdf-poppler';
 
 export const config = {
   api: { bodyParser: false },
@@ -38,6 +35,7 @@ export default async function handler(req, res) {
         const name = (file.originalFilename || '').toLowerCase();
         const buffer = await fs.promises.readFile(file.filepath);
 
+        console.log('API Import - Tipo de arquivo:', file.mimetype);
         let result = { columns: [], rows: [] };
 
         if (name.endsWith('.xlsx') || name.endsWith('.csv')) {
@@ -49,20 +47,11 @@ export default async function handler(req, res) {
           result = { columns, rows };
         } else if (name.endsWith('.pdf')) {
           const data = await pdfParse(buffer).catch(() => null);
-          let text = data?.text?.trim() || '';
+          const text = data?.text?.trim();
           if (!text) {
-            // Attempt OCR on each PDF page by converting to images
-            const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'pdf-'));
-            await convert(file.filepath, { format: 'png', out_dir: tmpDir, out_prefix: 'page' });
-            const images = fs.readdirSync(tmpDir).filter(f => f.endsWith('.png')).sort();
-            let combined = '';
-            for (const img of images) {
-              const { data: { text: pageText } } = await Tesseract.recognize(path.join(tmpDir, img), 'eng');
-              combined += '\n' + pageText;
-              await fs.promises.unlink(path.join(tmpDir, img));
-            }
-            await fs.promises.rmdir(tmpDir);
-            text = combined.trim();
+            console.log('API Import - PDF sem texto detectado');
+            res.status(400).json({ error: 'PDF sem texto ou não suportado para importação.' });
+            return resolve();
           }
           const lines = text.split('\n').filter(Boolean);
           const rows = lines.map(line => line.split(/[\s,;]+/));
@@ -79,7 +68,8 @@ export default async function handler(req, res) {
           return resolve();
         }
 
-        res.status(200).json(result);
+        console.log('API Import - Dados extraídos:', result);
+        res.status(200).json({ success: true, parsedData: result });
         return resolve();
       } catch (e) {
         console.error('Import error:', e);
