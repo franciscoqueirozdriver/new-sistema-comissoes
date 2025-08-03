@@ -48,11 +48,16 @@ export default function ImportModal() {
     if (!selectedFile) return;
     const form = new FormData();
     form.append('file', selectedFile);
-    const res = await fetch('/api/import', { method: 'POST', body: form });
-    const json = await res.json();
-    const parsedColumns = json.columns || [];
-    const parsedRows = json.rows || [];
-    setData({ columns: parsedColumns, rows: parsedRows });
+    try {
+      const res = await fetch('/api/import', { method: 'POST', body: form });
+      if (!res.ok) throw new Error('Falha no upload');
+      const json = await res.json();
+      const parsedColumns = json.columns || [];
+      const parsedRows = json.rows || [];
+      setData({ columns: parsedColumns, rows: parsedRows });
+    } catch (err: any) {
+      alert(err.message || 'Erro ao processar o arquivo');
+    }
   }
 
   const columnDefs = (data?.columns || []).map((c, idx) => ({ headerName: c, field: String(idx), editable: true }));
@@ -190,7 +195,7 @@ export default function ImportModal() {
               onClick={handleSubmit}
               className="bg-blue-600 text-white px-4 py-2 rounded"
             >
-              Confirm Import
+              Confirmar Import
             </button>
           </>
         )}

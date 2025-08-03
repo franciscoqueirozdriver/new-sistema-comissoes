@@ -27,7 +27,11 @@ export default async function handler(req, res){
     if (req.method === 'POST') {
       const { rows } = req.body; // array of objects
       if (!Array.isArray(rows)) return res.status(400).json({ error: 'Corpo inválido' });
-      const toAppend = rows.map(r => {
+      const { header, rows: existing } = await getSheetData(RANGE);
+      const existingObjs = rowsToObjects(header, existing);
+      const toAppend = [];
+      let skipped = 0;
+      rows.forEach(r => {
         const normalizedMes = normalizeMes(r.mes);
         const dias = parseInt(String(r.dias_dsr).replace(/[^0-9]/g,''),10) || 0;
         const obj = {
@@ -40,10 +44,22 @@ export default async function handler(req, res){
           user_email: session.user.email,
           fonte_arquivo: r.fonte_arquivo || '',
         };
-        return HEADER.map(h => obj[h] || '');
+        const exists = existingObjs.some(e =>
+          e.user_email === obj.user_email &&
+          normalizeMes(e.mes) === obj.mes &&
+          e.dsr === obj.dsr &&
+          e.data_pagamento === obj.data_pagamento
+        );
+        if (!exists) {
+          toAppend.push(HEADER.map(h => obj[h] || ''));
+        } else {
+          skipped++;
+        }
       });
-      await appendRows(SHEET_NAME, toAppend);
-      return res.status(201).json({ success: true });
+      if (toAppend.length) {
+        await appendRows(SHEET_NAME, toAppend);
+      }
+      return res.status(201).json({ success: true, appended: toAppend.length, skipped });
     }
 
     if (req.method === 'GET') {
