@@ -1,6 +1,7 @@
 import xlsx from 'xlsx';
 import pdfParse from 'pdf-parse';
 import Tesseract from 'tesseract.js';
+import { fromBuffer } from 'pdf2pic';
 import formidable from 'formidable';
 import fs from 'fs';
 
@@ -48,15 +49,24 @@ export default async function handler(req, res) {
         } else if (name.endsWith('.pdf')) {
           const data = await pdfParse(buffer).catch(() => null);
           const text = data?.text?.trim();
-          if (!text) {
-            console.log('API Import - PDF sem texto detectado');
-            res.status(400).json({ error: 'PDF sem texto ou não suportado para importação.' });
-            return resolve();
+          console.log('API Import - PDF digital?', !!text);
+
+          if (text) {
+            const lines = text.split('\n').filter(Boolean);
+            const rows = lines.map(line => line.split(/[\s,;]+/));
+            const columns = rows.shift() || [];
+            result = { columns, rows };
+          } else {
+            console.log('OCR realizado no PDF escaneado');
+            const convert = fromBuffer(buffer, { density: 300, savePath: '/tmp', format: 'png' });
+            const page1 = await convert(1);
+            const imageBuffer = await fs.promises.readFile(page1.path);
+            const ocr = await Tesseract.recognize(imageBuffer, 'eng');
+            const lines = ocr.data.text.split('\n').filter(Boolean);
+            const rows = lines.map(line => line.split(/[\s,;]+/));
+            const columns = rows.shift() || [];
+            result = { columns, rows };
           }
-          const lines = text.split('\n').filter(Boolean);
-          const rows = lines.map(line => line.split(/[\s,;]+/));
-          const columns = rows.shift() || [];
-          result = { columns, rows };
         } else if (name.match(/\.(png|jpg|jpeg)$/)) {
           const ocr = await Tesseract.recognize(buffer, 'eng');
           const lines = ocr.data.text.split('\n').filter(Boolean);
