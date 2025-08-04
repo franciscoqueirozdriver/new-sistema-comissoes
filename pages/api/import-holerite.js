@@ -62,28 +62,29 @@ function extractFields(text) {
 }
 
 async function convertFirstPage(pdfPath) {
-  const options = {
+  const outputDir = path.dirname(pdfPath) || '/tmp';
+  const converter = fromPath(pdfPath, {
     density: 300,
     saveFilename: 'page',
-    savePath: '/tmp',
+    savePath: outputDir,
     format: 'png',
-  };
-  const convert = fromPath(pdfPath, options);
-  const result = await convert(1);
+    width: 1200,
+    height: 1600,
+  });
+  const result = await converter(1);
   console.log('Imagem gerada em:', result.path);
   try {
-    const imgBuffer = fs.readFileSync(result.path);
-    console.log('Tamanho da imagem gerada:', imgBuffer.length, 'bytes');
+    const stats = fs.statSync(result.path);
+    console.log('Tamanho do PNG gerado:', stats.size, 'bytes');
   } catch (e) {
-    console.log('Falha ao ler imagem gerada:', e.message);
+    console.log('Falha ao obter tamanho do PNG:', e.message);
   }
   return result.path;
 }
 
 async function runOcr(imagePath) {
   const { data } = await Tesseract.recognize(imagePath, 'por', {
-    tessedit_pageseg_mode: 6,
-    preserve_interword_spaces: 1,
+    logger: (m) => console.log(m),
   });
   console.log('Texto OCR extraído:', data.text.trim().slice(0, 80));
   return data.text;
@@ -123,6 +124,7 @@ export default async function handler(req, res) {
     let text = '';
     let parsedText = false;
 
+    let imagePathToDelete = null;
     try {
       if (mimetype.includes('pdf')) {
         const parsed = await pdfParse(buffer).catch(() => ({ text: '', numpages: 0 }));
@@ -132,8 +134,8 @@ export default async function handler(req, res) {
           text = parsed.text;
         } else {
           const imagePath = await convertFirstPage(filePath);
+          imagePathToDelete = imagePath;
           text = await runOcr(imagePath);
-          fs.unlink(imagePath, () => {});
         }
       } else if (mimetype.startsWith('image/')) {
         const stats = fs.statSync(filePath);
@@ -143,17 +145,23 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, error: 'Formato de arquivo não suportado.' });
       }
     } finally {
+      if (imagePathToDelete) fs.unlink(imagePathToDelete, () => {});
       fs.unlink(filePath, () => {});
     }
 
     const dados = extractFields(text);
     console.log('Campos extraídos por regex:', dados);
+    const numerosExtraidos = text.match(/\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})/g) || [];
+    console.log('Números extraídos:', numerosExtraidos);
     const fileName = file.originalFilename || file.newFilename || file.name;
 
     return res.status(200).json({
       requiresMapping: true,
       fieldsExtracted: dados,
       fileName,
+      texto_bruto: text,
+      campos_extraidos: dados,
+      numeros_extraidos: numerosExtraidos,
     });
   } catch (error) {
     console.error('Erro ao importar holerite:', error);
