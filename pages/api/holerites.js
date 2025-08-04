@@ -1,4 +1,4 @@
-import { appendRows } from '@/lib/googleSheetsService';
+import { appendRows, getSheetData } from '@/lib/googleSheetsService';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth]';
 
@@ -22,6 +22,48 @@ export default async function handler(req, res) {
   }
 
   try {
+    const { header, rows } = await getSheetData('Holerites');
+    const idxMes = header.indexOf('mes');
+    const idxEmail = header.indexOf('user_email');
+    const idxFonte = header.indexOf('fonte_arquivo');
+    const idxId = header.indexOf('holerite_id');
+
+    const duplicado =
+      idxMes !== -1 &&
+      idxEmail !== -1 &&
+      idxFonte !== -1 &&
+      rows.some(
+        (r) => r[idxMes] === mes && r[idxEmail] === user_email && r[idxFonte] === fonte_arquivo
+      );
+
+    if (duplicado) {
+      console.log('Holerite duplicado detectado:', mes, user_email, fonte_arquivo);
+      return res
+        .status(409)
+        .json({ error: 'Holerite já importado para este mês e usuário.' });
+    }
+
+    function gerarHoleriteID(mes, email, existing) {
+      const [mm, aaaa] = mes.split('/');
+      const userHash = email
+        .split('@')[0]
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .toUpperCase()
+        .slice(0, 4);
+
+      const prefix = `${mm}${aaaa}-${userHash}`;
+      const count = existing.filter((row) => row.holerite_ID?.startsWith(prefix)).length + 1;
+
+      return `${prefix}-${count}`;
+    }
+
+    const existingForId = rows.map((r) => ({
+      holerite_ID: idxId !== -1 ? r[idxId] : undefined,
+    }));
+
+    const holeriteID = gerarHoleriteID(mes, user_email, existingForId);
+    console.log('holerite_ID gerado:', holeriteID);
+
     const row = [
       mes,
       salario_base,
@@ -31,6 +73,7 @@ export default async function handler(req, res) {
       data_pagamento,
       user_email,
       fonte_arquivo,
+      holeriteID,
     ];
     console.log('Dados enviados para planilha Holerites:', row);
     await appendRows('Holerites', [row]);
