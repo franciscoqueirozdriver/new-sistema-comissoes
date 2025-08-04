@@ -2,7 +2,7 @@ import fs from 'fs';
 import formidable from 'formidable';
 import pdfParse from 'pdf-parse';
 import Tesseract from 'tesseract.js';
-import { PDFDocument, PDFName } from 'pdf-lib';
+import { fromBuffer } from 'pdf2pic';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth]';
 
@@ -60,39 +60,19 @@ function extractFields(text) {
   };
 }
 
-function extractImagesFromResources(resources, pdfDoc, images) {
-  if (!resources) return;
-  const xObjectRef = resources.lookup(PDFName.of('XObject'));
-  if (!xObjectRef) return;
-
-  xObjectRef.entries().forEach(([name, ref]) => {
-    const obj = pdfDoc.context.lookup(ref);
-    const subtype = obj.dict.get(PDFName.of('Subtype'));
-    if (subtype === PDFName.of('Image')) {
-      const bytes = obj.contents || obj.getContents();
-      const filter = obj.dict.get(PDFName.of('Filter'));
-      let ext = 'png';
-      if (filter === PDFName.of('DCTDecode')) ext = 'jpg';
-      images.push({ buffer: Buffer.from(bytes), ext });
-    } else if (subtype === PDFName.of('Form')) {
-      const resRef = obj.dict.get(PDFName.of('Resources'));
-      const inner = resRef ? pdfDoc.context.lookup(resRef) : null;
-      extractImagesFromResources(inner, pdfDoc, images);
-    }
+async function pdfToImages(buffer, pages) {
+  const convert = fromBuffer(buffer, {
+    density: 200,
+    format: 'png',
+    quality: 100,
   });
-}
-
-async function pdfToImages(buffer) {
-  const pdfDoc = await PDFDocument.load(buffer);
-  const pages = pdfDoc.getPages();
   const images = [];
-
-  for (const page of pages) {
-    const resRef = page.node.get(PDFName.of('Resources'));
-    const resources = resRef ? pdfDoc.context.lookup(resRef) : null;
-    extractImagesFromResources(resources, pdfDoc, images);
+  for (let i = 1; i <= pages; i++) {
+    const result = await convert(i, { responseType: 'buffer' });
+    console.log(`Página ${i} extraída com ${result.buffer.length} bytes`);
+    images.push(result.buffer);
   }
-
+  console.log('Páginas extraídas para OCR:', images.length);
   return images;
 }
 
@@ -100,10 +80,11 @@ async function runOcrOnImages(images) {
   let ocrText = '';
   let count = 0;
   for (const img of images) {
-    const { data } = await Tesseract.recognize(img.buffer, 'por', {
+    const { data } = await Tesseract.recognize(img, 'por', {
       tessedit_pageseg_mode: 6,
-      preserve_interword_spaces: '1',
+      preserve_interword_spaces: 1,
     });
+    console.log(`Texto OCR da página ${count + 1}:`, data.text.trim().slice(0, 80));
     ocrText += data.text + '\n';
     count += 1;
   }
@@ -146,19 +127,21 @@ export default async function handler(req, res) {
 
     try {
       if (mimetype.includes('pdf')) {
-        const parsed = await pdfParse(buffer).catch(() => ({ text: '' }));
+        const parsed = await pdfParse(buffer).catch(() => ({ text: '', numpages: 0 }));
         parsedText = parsed.text && parsed.text.trim().length > 0;
         console.log('pdf-parse encontrou texto:', parsedText);
         if (parsedText) {
           text = parsed.text;
         } else {
-          const images = await pdfToImages(buffer);
-          console.log('Páginas extraídas para OCR:', images.length);
+          const images = await pdfToImages(buffer, parsed.numpages || 1);
           text = await runOcrOnImages(images);
         }
       } else if (mimetype.startsWith('image/')) {
         console.log('OCR executado em imagem única');
-        const { data } = await Tesseract.recognize(filePath, 'por');
+        const { data } = await Tesseract.recognize(filePath, 'por', {
+          tessedit_pageseg_mode: 6,
+          preserve_interword_spaces: 1,
+        });
         text = data.text;
       } else {
         return res.status(400).json({ success: false, error: 'Formato de arquivo não suportado.' });

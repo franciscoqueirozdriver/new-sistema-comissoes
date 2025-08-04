@@ -22,7 +22,7 @@
     "formidable": "^3.5.4",
     "pdf-parse": "^1.1.1",
     "tesseract.js": "^5.0.3",
-    "pdf-lib": "^1.17.1"
+    "pdf2pic": "^3.1.1"
   },
   "devDependencies": {
     "autoprefixer": "10.4.17",
