@@ -1,8 +1,9 @@
 import fs from 'fs';
+import path from 'path';
 import formidable from 'formidable';
 import pdfParse from 'pdf-parse';
 import Tesseract from 'tesseract.js';
-import { fromBuffer } from 'pdf2pic';
+import { fromPath } from 'pdf2pic';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth]';
 
@@ -44,9 +45,9 @@ function extractFields(text) {
   }
 
   const salarioMatch = text.match(/Horas\s+Normais[\s\S]*?(\d{1,3}(?:\.\d{3})*,\d{2})/i);
-  const comissaoMatch = text.match(/Comissoes[\s\S]*?(\d{1,3}(?:\.\d{3})*,\d{2})/i);
+  const comissaoMatch = text.match(/Comiss(?:ões|oes)[\s\S]*?(\d{1,3}(?:\.\d{3})*,\d{2})/i);
   const dsrMatch = text.match(
-    /Reflexo\s+Comissoes\s+DSR[\s\S]*?(\d+)[\s\S]*?(\d{1,3}(?:\.\d{3})*,\d{2})/i
+    /Reflexo\s+Comiss(?:ões|oes)\s+DSR[\s\S]*?(\d+)[\s\S]*?(\d{1,3}(?:\.\d{3})*,\d{2})/i
   );
   const dataMatch = text.match(/Data\s+Pagamento[:\s]+(\d{2}\/\d{2}\/\d{4})/i);
 
@@ -60,36 +61,32 @@ function extractFields(text) {
   };
 }
 
-async function pdfToImages(buffer, pages) {
-  const convert = fromBuffer(buffer, {
-    density: 200,
+async function convertFirstPage(pdfPath) {
+  const options = {
+    density: 300,
+    saveFilename: 'page',
+    savePath: '/tmp',
     format: 'png',
-    quality: 100,
-  });
-  const images = [];
-  for (let i = 1; i <= pages; i++) {
-    const result = await convert(i, { responseType: 'buffer' });
-    console.log(`Página ${i} extraída com ${result.buffer.length} bytes`);
-    images.push(result.buffer);
+  };
+  const convert = fromPath(pdfPath, options);
+  const result = await convert(1);
+  console.log('Imagem gerada em:', result.path);
+  try {
+    const imgBuffer = fs.readFileSync(result.path);
+    console.log('Tamanho da imagem gerada:', imgBuffer.length, 'bytes');
+  } catch (e) {
+    console.log('Falha ao ler imagem gerada:', e.message);
   }
-  console.log('Páginas extraídas para OCR:', images.length);
-  return images;
+  return result.path;
 }
 
-async function runOcrOnImages(images) {
-  let ocrText = '';
-  let count = 0;
-  for (const img of images) {
-    const { data } = await Tesseract.recognize(img, 'por', {
-      tessedit_pageseg_mode: 6,
-      preserve_interword_spaces: 1,
-    });
-    console.log(`Texto OCR da página ${count + 1}:`, data.text.trim().slice(0, 80));
-    ocrText += data.text + '\n';
-    count += 1;
-  }
-  console.log(`OCR executado em ${count} página(s)`);
-  return ocrText;
+async function runOcr(imagePath) {
+  const { data } = await Tesseract.recognize(imagePath, 'por', {
+    tessedit_pageseg_mode: 6,
+    preserve_interword_spaces: 1,
+  });
+  console.log('Texto OCR extraído:', data.text.trim().slice(0, 80));
+  return data.text;
 }
 
 export default async function handler(req, res) {
@@ -104,7 +101,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const form = formidable({ multiples: false, keepExtensions: true });
+    const form = formidable({ multiples: false, keepExtensions: true, uploadDir: '/tmp' });
     const { files } = await new Promise((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
         if (err) reject(err);
@@ -121,6 +118,7 @@ export default async function handler(req, res) {
     console.log('Tipo de arquivo recebido:', mimetype);
 
     const filePath = file.filepath || file.path;
+    console.log('PDF salvo em:', filePath);
     const buffer = fs.readFileSync(filePath);
     let text = '';
     let parsedText = false;
@@ -133,16 +131,14 @@ export default async function handler(req, res) {
         if (parsedText) {
           text = parsed.text;
         } else {
-          const images = await pdfToImages(buffer, parsed.numpages || 1);
-          text = await runOcrOnImages(images);
+          const imagePath = await convertFirstPage(filePath);
+          text = await runOcr(imagePath);
+          fs.unlink(imagePath, () => {});
         }
       } else if (mimetype.startsWith('image/')) {
-        console.log('OCR executado em imagem única');
-        const { data } = await Tesseract.recognize(filePath, 'por', {
-          tessedit_pageseg_mode: 6,
-          preserve_interword_spaces: 1,
-        });
-        text = data.text;
+        const stats = fs.statSync(filePath);
+        console.log('Imagem recebida:', filePath, 'tamanho:', stats.size, 'bytes');
+        text = await runOcr(filePath);
       } else {
         return res.status(400).json({ success: false, error: 'Formato de arquivo não suportado.' });
       }
@@ -151,11 +147,12 @@ export default async function handler(req, res) {
     }
 
     const dados = extractFields(text);
+    console.log('Campos extraídos por regex:', dados);
     const fileName = file.originalFilename || file.newFilename || file.name;
 
     return res.status(200).json({
       requiresMapping: true,
-      detectedFields: dados,
+      fieldsExtracted: dados,
       fileName,
     });
   } catch (error) {

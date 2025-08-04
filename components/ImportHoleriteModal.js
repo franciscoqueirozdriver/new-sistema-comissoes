@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 
-const columns = ['mes','salario_base','comissao','dsr','dias_dsr','data_pagamento'];
+const columns = ['mes','salario_base','comissao','dsr','dias_dsr','data_pagamento','user_email','fonte_arquivo'];
 
 export default function ImportHoleriteModal({ isOpen, onClose }) {
   const { data: session } = useSession();
@@ -28,11 +28,14 @@ export default function ImportHoleriteModal({ isOpen, onClose }) {
       if (!res.ok) throw new Error('Falha ao processar PDF.');
       const data = await res.json();
       if (data.requiresMapping) {
-        const detected = Object.entries(data.detectedFields || {}).map(([key, value]) => ({
+        const detected = Object.entries(data.fieldsExtracted || {}).map(([key, value]) => ({
           key,
           value,
           mapTo: columns.includes(key) ? key : ''
         }));
+        const email = session?.user?.email || '';
+        detected.push({ key: 'user_email', value: email, mapTo: 'user_email' });
+        detected.push({ key: 'fonte_arquivo', value: data.fileName || '', mapTo: 'fonte_arquivo' });
         setRows(detected);
         setFileName(data.fileName || '');
         setStep('mapping');
@@ -61,6 +64,7 @@ export default function ImportHoleriteModal({ isOpen, onClose }) {
       setError('Usuário não autenticado.');
       return;
     }
+    // garantir e-mail e nome do arquivo corretos
     payload.user_email = session.user.email;
     payload.fonte_arquivo = fileName;
     const required = columns.filter((c) => c !== 'data_pagamento');

@@ -22,7 +22,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    await appendRows('Holerites', [[
+    const row = [
       mes,
       salario_base,
       comissao,
@@ -31,7 +31,9 @@ export default async function handler(req, res) {
       data_pagamento,
       user_email,
       fonte_arquivo,
-    ]]);
+    ];
+    console.log('Dados enviados para planilha Holerites:', row);
+    await appendRows('Holerites', [row]);
     return res.status(201).json({ success: true });
   } catch (error) {
     console.error('Erro ao salvar holerite:', error);
