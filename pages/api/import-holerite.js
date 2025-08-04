@@ -61,6 +61,33 @@ function extractFields(text) {
   };
 }
 
+function calcularQuintoDiaUtil(mes) {
+  const [mesStr, anoStr] = mes.split('/');
+  let mesNum = parseInt(mesStr, 10);
+  let anoNum = parseInt(anoStr, 10);
+  // próximo mês
+  mesNum += 1;
+  if (mesNum > 12) {
+    mesNum = 1;
+    anoNum += 1;
+  }
+  const date = new Date(anoNum, mesNum - 1, 1);
+  let uteis = 0;
+  while (uteis < 5) {
+    const day = date.getDay();
+    if (day !== 0 && day !== 6) {
+      uteis += 1;
+    }
+    if (uteis < 5) {
+      date.setDate(date.getDate() + 1);
+    }
+  }
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
 async function convertFirstPage(pdfPath) {
   const outputDir = path.dirname(pdfPath) || '/tmp';
   const converter = fromPath(pdfPath, {
@@ -150,6 +177,10 @@ export default async function handler(req, res) {
     }
 
     const dados = extractFields(text);
+    if (!dados.data_pagamento && dados.mes) {
+      dados.data_pagamento = calcularQuintoDiaUtil(dados.mes);
+      console.log('Data de pagamento calculada automaticamente:', dados.data_pagamento);
+    }
     console.log('Campos extraídos por regex:', dados);
     const numerosExtraidos = text.match(/\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})/g) || [];
     console.log('Números extraídos:', numerosExtraidos);
