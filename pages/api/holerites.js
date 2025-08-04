@@ -15,9 +15,9 @@ export default async function handler(req, res) {
     return res.status(405).end(`Método ${req.method} não permitido.`);
   }
 
-  const { mes, salario_base, comissao, dsr, dias_dsr, data_pagamento, user_email, fonte_arquivo } = req.body;
+  const { mes, salario_base, comissao, dsr, dias_dsr, data_pagamento = '', user_email, fonte_arquivo } = req.body;
 
-  if (!mes || !salario_base || !comissao || !dsr || !dias_dsr || !data_pagamento || !user_email || !fonte_arquivo) {
+  if (!mes || !salario_base || !comissao || !dsr || !dias_dsr || !user_email || !fonte_arquivo) {
     return res.status(400).json({ error: 'Dados insuficientes.' });
   }
 

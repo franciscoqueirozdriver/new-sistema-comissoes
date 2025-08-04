@@ -15,19 +15,75 @@ export const config = {
 export const dynamic = 'force-dynamic';
 
 function extractFields(text) {
-  const get = (regex) => {
-    const match = text.match(regex);
-    return match ? match[1].trim() : '';
+  const lines = text.split(/\r?\n/);
+
+  const monthMap = {
+    janeiro: '01',
+    fevereiro: '02',
+    março: '03',
+    marco: '03',
+    abril: '04',
+    maio: '05',
+    junho: '06',
+    julho: '07',
+    agosto: '08',
+    setembro: '09',
+    outubro: '10',
+    novembro: '11',
+    dezembro: '12',
   };
 
-  return {
-    mes: get(/M[êe]s\/Ano[:\s]+([0-9]{2}\/[0-9]{4})/i),
-    salario_base: get(/Sal[áa]rio Base[:\s]+([0-9.,]+)/i),
-    comissao: get(/Comiss[oõ]es?[:\s]+([0-9.,]+)/i),
-    dsr: get(/DSR[:\s]+([0-9.,]+)/i),
-    dias_dsr: get(/Dias de DSR[:\s]+([0-9]+)/i),
-    data_pagamento: get(/Data Pagamento[:\s]+([0-9]{2}\/[0-9]{2}\/[0-9]{4})/i),
+  const headerMatch = text.match(/([A-Za-zçÇãÃéÉôÔ]+)\s+de\s+(\d{4})/i);
+  let mes = '';
+  if (headerMatch) {
+    const m = headerMatch[1].toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+    if (monthMap[m]) mes = `${monthMap[m]}/${headerMatch[2]}`;
+  }
+
+  const findValue = (pattern) => {
+    const regex = new RegExp(pattern, 'i');
+    const line = lines.find((l) => regex.test(l)) || '';
+    const match = line.match(/([0-9]+[0-9.,]*)\s*$/);
+    return match ? match[1] : '';
   };
+
+  const salario_base = findValue('HORAS\s+NORMAIS');
+  const comissao = findValue('COMISS[OÕ]ES');
+
+  let dsr = '';
+  let dias_dsr = '';
+  const dsrLine = lines.find((l) => /REFLEXO\s+COMISS[OÕ]ES\s+DSR/i.test(l)) || '';
+  const dsrMatch = dsrLine.match(/([0-9]+)\s+([0-9.,]+)\s*$/);
+  if (dsrMatch) {
+    dias_dsr = dsrMatch[1];
+    dsr = dsrMatch[2];
+  }
+
+  const dataMatch = text.match(/Data\s+Pagamento[:\s]+([0-9]{2}\/[0-9]{2}\/[0-9]{4})/i);
+  const data_pagamento = dataMatch ? dataMatch[1] : '';
+
+  return { mes, salario_base, comissao, dsr, dias_dsr, data_pagamento };
+}
+
+function extractImagesFromResources(resources, pdfDoc, images) {
+  if (!resources) return;
+  const xObject = resources.lookup(PDFName.of('XObject'));
+  if (!xObject) return;
+
+  xObject.entries().forEach(([name, ref]) => {
+    const obj = pdfDoc.context.lookup(ref);
+    const subtype = obj.dict.get(PDFName.of('Subtype'));
+    if (subtype === PDFName.of('Image')) {
+      const bytes = obj.getContents();
+      const filter = obj.dict.get(PDFName.of('Filter'));
+      let ext = 'png';
+      if (filter === PDFName.of('DCTDecode')) ext = 'jpg';
+      images.push({ buffer: Buffer.from(bytes), ext });
+    } else if (subtype === PDFName.of('Form')) {
+      const res = obj.dict.get(PDFName.of('Resources'));
+      extractImagesFromResources(res, pdfDoc, images);
+    }
+  });
 }
 
 async function pdfToImages(buffer) {
@@ -37,20 +93,7 @@ async function pdfToImages(buffer) {
 
   for (const page of pages) {
     const resources = page.node.Resources();
-    const xObject = resources.lookup(PDFName.of('XObject'));
-    if (!xObject) continue;
-
-    xObject.entries().forEach(([name, ref]) => {
-      const obj = pdfDoc.context.lookup(ref);
-      const subtype = obj.dict.get(PDFName.of('Subtype'));
-      if (subtype !== PDFName.of('Image')) return;
-
-      const bytes = obj.getContents();
-      const filter = obj.dict.get(PDFName.of('Filter'));
-      let ext = 'png';
-      if (filter === PDFName.of('DCTDecode')) ext = 'jpg';
-      images.push({ buffer: Buffer.from(bytes), ext });
-    });
+    extractImagesFromResources(resources, pdfDoc, images);
   }
 
   return images;
@@ -110,6 +153,7 @@ export default async function handler(req, res) {
           text = parsed.text;
         } else {
           const images = await pdfToImages(buffer);
+          console.log('Páginas extraídas para OCR:', images.length);
           text = await runOcrOnImages(images);
         }
       } else if (mimetype.startsWith('image/')) {

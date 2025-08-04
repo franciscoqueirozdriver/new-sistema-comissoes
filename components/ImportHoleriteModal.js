@@ -55,7 +55,7 @@ export default function ImportHoleriteModal({ isOpen, onClose }) {
   const handleConfirm = async () => {
     const payload = {};
     rows.forEach((r) => {
-      if (r.mapTo && r.value) payload[r.mapTo] = r.value;
+      if (r.mapTo) payload[r.mapTo] = r.value || '';
     });
     if (!session?.user?.email) {
       setError('Usuário não autenticado.');
@@ -63,7 +63,8 @@ export default function ImportHoleriteModal({ isOpen, onClose }) {
     }
     payload.user_email = session.user.email;
     payload.fonte_arquivo = fileName;
-    const missing = columns.filter((c) => !payload[c]);
+    const required = columns.filter((c) => c !== 'data_pagamento');
+    const missing = required.filter((c) => !payload[c]);
     if (missing.length) {
       setError('Preencha todos os campos antes de salvar.');
       return;
@@ -112,18 +113,19 @@ export default function ImportHoleriteModal({ isOpen, onClose }) {
             <table className="w-full text-sm">
               <thead>
                 <tr>
-                  <th className="text-left">DE</th>
+                  <th className="text-left">Campo</th>
+                  <th className="text-left">Valor</th>
                   <th className="text-left">PARA</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row, idx) => (
                   <tr key={idx}>
+                    <td className="py-1 pr-2">{row.key}</td>
                     <td className="py-1 pr-2">
                       <input
                         className="w-full p-1 border rounded"
                         value={row.value}
-                        placeholder={row.key || 'valor'}
                         onChange={(e) => updateRow(idx, { value: e.target.value })}
                       />
                     </td>
