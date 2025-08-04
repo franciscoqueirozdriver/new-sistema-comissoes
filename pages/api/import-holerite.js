@@ -3,7 +3,6 @@ import formidable from 'formidable';
 import pdfParse from 'pdf-parse';
 import Tesseract from 'tesseract.js';
 import { PDFDocument, PDFName } from 'pdf-lib';
-import { appendRows } from '@/lib/googleSheetsService';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth]';
 
@@ -125,26 +124,13 @@ export default async function handler(req, res) {
     }
 
     const dados = extractFields(text);
-    dados.user_email = session.user.email;
-    dados.fonte_arquivo = file.originalFilename || file.newFilename || file.name;
+    const fileName = file.originalFilename || file.newFilename || file.name;
 
-    try {
-      await appendRows('Holerites', [[
-        dados.mes,
-        dados.salario_base,
-        dados.comissao,
-        dados.dsr,
-        dados.dias_dsr,
-        dados.data_pagamento,
-        dados.user_email,
-        dados.fonte_arquivo,
-      ]]);
-    } catch (err) {
-      console.error('Erro ao salvar holerite:', err);
-      return res.status(500).json({ success: false, error: 'Erro ao salvar holerite.' });
-    }
-
-    return res.status(200).json({ success: true, data: dados });
+    return res.status(200).json({
+      requiresMapping: true,
+      detectedFields: dados,
+      fileName,
+    });
   } catch (error) {
     console.error('Erro ao importar holerite:', error);
     return res.status(500).json({ success: false, error: error.message });
