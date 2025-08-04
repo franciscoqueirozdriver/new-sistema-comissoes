@@ -15,8 +15,6 @@ export const config = {
 export const dynamic = 'force-dynamic';
 
 function extractFields(text) {
-  const lines = text.split(/\r?\n/);
-
   const monthMap = {
     janeiro: '01',
     fevereiro: '02',
@@ -33,55 +31,53 @@ function extractFields(text) {
     dezembro: '12',
   };
 
-  const headerMatch = text.match(/([A-Za-zçÇãÃéÉôÔ]+)\s+de\s+(\d{4})/i);
+  const mesMatch = text.match(
+    /(Janeiro|Fevereiro|Março|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro)\s+de\s+(\d{4})/i
+  );
   let mes = '';
-  if (headerMatch) {
-    const m = headerMatch[1].toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
-    if (monthMap[m]) mes = `${monthMap[m]}/${headerMatch[2]}`;
+  if (mesMatch) {
+    const norm = mesMatch[1]
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '');
+    if (monthMap[norm]) mes = `${monthMap[norm]}/${mesMatch[2]}`;
   }
 
-  const findValue = (pattern) => {
-    const regex = new RegExp(pattern, 'i');
-    const line = lines.find((l) => regex.test(l)) || '';
-    const match = line.match(/([0-9]+[0-9.,]*)\s*$/);
-    return match ? match[1] : '';
+  const salarioMatch = text.match(/Horas\s+Normais[\s\S]*?(\d{1,3}(?:\.\d{3})*,\d{2})/i);
+  const comissaoMatch = text.match(/Comissoes[\s\S]*?(\d{1,3}(?:\.\d{3})*,\d{2})/i);
+  const dsrMatch = text.match(
+    /Reflexo\s+Comissoes\s+DSR[\s\S]*?(\d+)[\s\S]*?(\d{1,3}(?:\.\d{3})*,\d{2})/i
+  );
+  const dataMatch = text.match(/Data\s+Pagamento[:\s]+(\d{2}\/\d{2}\/\d{4})/i);
+
+  return {
+    mes,
+    salario_base: salarioMatch ? salarioMatch[1] : '',
+    comissao: comissaoMatch ? comissaoMatch[1] : '',
+    dsr: dsrMatch ? dsrMatch[2] : '',
+    dias_dsr: dsrMatch ? dsrMatch[1] : '',
+    data_pagamento: dataMatch ? dataMatch[1] : '',
   };
-
-  const salario_base = findValue('HORAS\s+NORMAIS');
-  const comissao = findValue('COMISS[OÕ]ES');
-
-  let dsr = '';
-  let dias_dsr = '';
-  const dsrLine = lines.find((l) => /REFLEXO\s+COMISS[OÕ]ES\s+DSR/i.test(l)) || '';
-  const dsrMatch = dsrLine.match(/([0-9]+)\s+([0-9.,]+)\s*$/);
-  if (dsrMatch) {
-    dias_dsr = dsrMatch[1];
-    dsr = dsrMatch[2];
-  }
-
-  const dataMatch = text.match(/Data\s+Pagamento[:\s]+([0-9]{2}\/[0-9]{2}\/[0-9]{4})/i);
-  const data_pagamento = dataMatch ? dataMatch[1] : '';
-
-  return { mes, salario_base, comissao, dsr, dias_dsr, data_pagamento };
 }
 
 function extractImagesFromResources(resources, pdfDoc, images) {
   if (!resources) return;
-  const xObject = resources.lookup(PDFName.of('XObject'));
-  if (!xObject) return;
+  const xObjectRef = resources.lookup(PDFName.of('XObject'));
+  if (!xObjectRef) return;
 
-  xObject.entries().forEach(([name, ref]) => {
+  xObjectRef.entries().forEach(([name, ref]) => {
     const obj = pdfDoc.context.lookup(ref);
     const subtype = obj.dict.get(PDFName.of('Subtype'));
     if (subtype === PDFName.of('Image')) {
-      const bytes = obj.getContents();
+      const bytes = obj.contents || obj.getContents();
       const filter = obj.dict.get(PDFName.of('Filter'));
       let ext = 'png';
       if (filter === PDFName.of('DCTDecode')) ext = 'jpg';
       images.push({ buffer: Buffer.from(bytes), ext });
     } else if (subtype === PDFName.of('Form')) {
-      const res = obj.dict.get(PDFName.of('Resources'));
-      extractImagesFromResources(res, pdfDoc, images);
+      const resRef = obj.dict.get(PDFName.of('Resources'));
+      const inner = resRef ? pdfDoc.context.lookup(resRef) : null;
+      extractImagesFromResources(inner, pdfDoc, images);
     }
   });
 }
@@ -92,7 +88,8 @@ async function pdfToImages(buffer) {
   const images = [];
 
   for (const page of pages) {
-    const resources = page.node.Resources();
+    const resRef = page.node.get(PDFName.of('Resources'));
+    const resources = resRef ? pdfDoc.context.lookup(resRef) : null;
     extractImagesFromResources(resources, pdfDoc, images);
   }
 
@@ -103,7 +100,10 @@ async function runOcrOnImages(images) {
   let ocrText = '';
   let count = 0;
   for (const img of images) {
-    const { data } = await Tesseract.recognize(img.buffer, 'por');
+    const { data } = await Tesseract.recognize(img.buffer, 'por', {
+      tessedit_pageseg_mode: 6,
+      preserve_interword_spaces: '1',
+    });
     ocrText += data.text + '\n';
     count += 1;
   }
