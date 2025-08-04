@@ -24,23 +24,37 @@ export default async function handler(req, res) {
   try {
     const { header, rows } = await getSheetData('Holerites');
     const idxMes = header.indexOf('mes');
+    const idxSalario = header.indexOf('salario_base');
+    const idxComissao = header.indexOf('comissao');
+    const idxDsr = header.indexOf('dsr');
+    const idxDiasDsr = header.indexOf('dias_dsr');
     const idxEmail = header.indexOf('user_email');
-    const idxFonte = header.indexOf('fonte_arquivo');
     const idxId = header.indexOf('holerite_id');
 
     const duplicado =
       idxMes !== -1 &&
+      idxSalario !== -1 &&
+      idxComissao !== -1 &&
+      idxDsr !== -1 &&
+      idxDiasDsr !== -1 &&
       idxEmail !== -1 &&
-      idxFonte !== -1 &&
       rows.some(
-        (r) => r[idxMes] === mes && r[idxEmail] === user_email && r[idxFonte] === fonte_arquivo
+        (r) =>
+          r[idxMes] === mes &&
+          r[idxSalario] === salario_base &&
+          r[idxComissao] === comissao &&
+          r[idxDsr] === dsr &&
+          r[idxDiasDsr] === dias_dsr &&
+          r[idxEmail] === user_email
       );
 
     if (duplicado) {
-      console.log('Holerite duplicado detectado:', mes, user_email, fonte_arquivo);
+      console.log(
+        `❌ Holerite duplicado detectado para ${mes} - usuário ${user_email} - valores iguais já existem.`
+      );
       return res
         .status(409)
-        .json({ error: 'Holerite já importado para este mês e usuário.' });
+        .json({ error: 'Holerite já existente com os mesmos dados para este usuário e mês.' });
     }
 
     function gerarHoleriteID(mes, email, existing) {
