@@ -1,31 +1,62 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
-import { getSheetData, appendRows, updateSheet } from "@/lib/googleSheetsService";
+import { getSheetData, updateSheet } from "@/lib/googleSheetsService";
 
 export const dynamic = 'force-dynamic';
 
 const SHEET_NAME = "Permissoes";
 const HEADERS = ["tipo", "rota", "visualizar", "editar", "excluir", "exportar"];
 
-/** @typedef {"admin"|"usuario"|"usuarioplus"} Papel */
-/** @typedef {{ tipo:Papel, rota:string, visualizar:boolean, editar:boolean, excluir:boolean, exportar:boolean }} LinhaPermissao */
-
-const parseBool = (val) => {
-  if (typeof val === "boolean") return val;
-  if (typeof val === "string") return val.toLowerCase() === "true";
+const toBool = (v) => {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "string") return v.toLowerCase() === "true";
   return false;
 };
 
 const boolToSheet = (b) => (b ? "TRUE" : "FALSE");
 
-const validateItem = (item) => {
+function normTipo(v) {
+  return String(v || "").trim();
+}
+
+function normRota(v) {
+  const s = String(v || "").trim().replace(/\s+/g, "");
+  if (!s) return "/";
+  return s.startsWith("/") ? s : `/${s}`;
+}
+
+function keyOf(t, r) {
+  return `${normTipo(t)}|${normRota(r)}`;
+}
+
+function validateItem(item) {
   const tipos = ["admin", "usuario", "usuarioplus"];
-  return (
-    tipos.includes(item.tipo) &&
-    typeof item.rota === "string" &&
-    item.rota.startsWith("/")
-  );
-};
+  const tipo = normTipo(item.tipo);
+  const rota = normRota(item.rota);
+  return tipos.includes(tipo) && rota.startsWith("/");
+}
+
+async function getMap() {
+  const { header, rows } = await getSheetData(SHEET_NAME);
+  if (header.join() !== HEADERS.join()) {
+    throw new Error("Cabeçalho inválido");
+  }
+  const map = new Map();
+  rows.forEach((row) => {
+    const tipo = normTipo(row[0]);
+    const rota = normRota(row[1]);
+    const key = keyOf(tipo, rota);
+    map.set(key, [
+      tipo,
+      rota,
+      boolToSheet(toBool(row[2])),
+      boolToSheet(toBool(row[3])),
+      boolToSheet(toBool(row[4])),
+      boolToSheet(toBool(row[5])),
+    ]);
+  });
+  return map;
+}
 
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
@@ -36,17 +67,14 @@ export default async function handler(req, res) {
 
   if (req.method === "GET") {
     try {
-      const { header, rows } = await getSheetData(SHEET_NAME);
-      if (header.join() !== HEADERS.join()) {
-        return res.status(500).json({ message: "Cabeçalho inválido" });
-      }
-      const items = rows.map((row) => ({
+      const map = await getMap();
+      const items = Array.from(map.values()).map((row) => ({
         tipo: row[0],
         rota: row[1],
-        visualizar: parseBool(row[2]),
-        editar: parseBool(row[3]),
-        excluir: parseBool(row[4]),
-        exportar: parseBool(row[5]),
+        visualizar: toBool(row[2]),
+        editar: toBool(row[3]),
+        excluir: toBool(row[4]),
+        exportar: toBool(row[5]),
       }));
       return res.status(200).json({ items });
     } catch (error) {
@@ -60,36 +88,25 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "items inválido" });
     }
     try {
-      const { header, rows } = await getSheetData(SHEET_NAME);
-      if (header.join() !== HEADERS.join()) {
-        return res.status(500).json({ message: "Cabeçalho inválido" });
-      }
-      const indexMap = new Map();
-      rows.forEach((row, idx) => {
-        indexMap.set(`${row[0]}|${row[1]}`, idx);
-      });
+      const map = await getMap();
       for (const item of body.items) {
         if (!validateItem(item)) {
           return res.status(400).json({ message: "Item inválido" });
         }
-        const key = `${item.tipo}|${item.rota}`;
-        const newRow = [
-          item.tipo,
-          item.rota,
-          boolToSheet(item.visualizar),
-          boolToSheet(item.editar),
-          boolToSheet(item.excluir),
-          boolToSheet(item.exportar),
-        ];
-        if (indexMap.has(key)) {
-          const idx = indexMap.get(key);
-          if (idx !== undefined) rows[idx] = newRow;
-        } else {
-          rows.push(newRow);
-        }
+        const tipo = normTipo(item.tipo);
+        const rota = normRota(item.rota);
+        const key = keyOf(tipo, rota);
+        map.set(key, [
+          tipo,
+          rota,
+          boolToSheet(toBool(item.visualizar)),
+          boolToSheet(toBool(item.editar)),
+          boolToSheet(toBool(item.excluir)),
+          boolToSheet(toBool(item.exportar)),
+        ]);
       }
-      await updateSheet(SHEET_NAME, [HEADERS, ...rows]);
-      return res.status(200).json({ ok: true });
+      await updateSheet(SHEET_NAME, [HEADERS, ...Array.from(map.values())]);
+      return res.status(200).json({ ok: true, updated: body.items.length });
     } catch (error) {
       return res.status(500).json({ message: error.message });
     }
@@ -100,16 +117,21 @@ export default async function handler(req, res) {
     if (!body.item || !validateItem(body.item)) {
       return res.status(400).json({ message: "item inválido" });
     }
-    const row = [
-      body.item.tipo,
-      body.item.rota,
-      boolToSheet(body.item.visualizar),
-      boolToSheet(body.item.editar),
-      boolToSheet(body.item.excluir),
-      boolToSheet(body.item.exportar),
-    ];
     try {
-      await appendRows(SHEET_NAME, [row]);
+      const map = await getMap();
+      const item = body.item;
+      const tipo = normTipo(item.tipo);
+      const rota = normRota(item.rota);
+      const key = keyOf(tipo, rota);
+      map.set(key, [
+        tipo,
+        rota,
+        boolToSheet(toBool(item.visualizar)),
+        boolToSheet(toBool(item.editar)),
+        boolToSheet(toBool(item.excluir)),
+        boolToSheet(toBool(item.exportar)),
+      ]);
+      await updateSheet(SHEET_NAME, [HEADERS, ...Array.from(map.values())]);
       return res.status(200).json({ ok: true });
     } catch (error) {
       return res.status(500).json({ message: error.message });
@@ -122,12 +144,9 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: "Parâmetros inválidos" });
     }
     try {
-      const { header, rows } = await getSheetData(SHEET_NAME);
-      if (header.join() !== HEADERS.join()) {
-        return res.status(500).json({ message: "Cabeçalho inválido" });
-      }
-      const filtered = rows.filter((row) => !(row[0] === tipo && row[1] === rota));
-      await updateSheet(SHEET_NAME, [HEADERS, ...filtered]);
+      const map = await getMap();
+      map.delete(keyOf(tipo, rota));
+      await updateSheet(SHEET_NAME, [HEADERS, ...Array.from(map.values())]);
       return res.status(200).json({ ok: true });
     } catch (error) {
       return res.status(500).json({ message: error.message });
@@ -136,3 +155,4 @@ export default async function handler(req, res) {
 
   return res.status(405).end();
 }
+
