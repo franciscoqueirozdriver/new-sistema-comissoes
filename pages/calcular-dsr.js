@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useSession } from 'next-auth/react';
 import RelatorioDSRTable from '@/components/RelatorioDSRTable';
 import useDiasUteis from '@/lib/useDiasUteis';
+import ImportHoleriteModal from '@/components/ImportHoleriteModal';
 
 const getAnoMes = (date) => {
   const ano = date.getFullYear();
@@ -12,6 +13,9 @@ const getAnoMes = (date) => {
 
 export default function CalcularDSRPage() {
   const { data: session, status } = useSession();
+  const [importOpen, setImportOpen] = useState(false);
+  const role = session?.user?.role ?? 'usuario';
+  const podeVer = role === 'admin';
   const [mesAno, setMesAno] = useState(getAnoMes(new Date()));
   const [pagamentos, setPagamentos] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -82,6 +86,14 @@ export default function CalcularDSRPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900">Cálculo de DSR</h1>
+        {podeVer && (
+          <button
+            onClick={() => setImportOpen(true)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+          >
+            Importar Holerite
+          </button>
+        )}
       </div>
 
       <Card>
@@ -147,6 +159,7 @@ export default function CalcularDSRPage() {
           )}
         </CardContent>
       </Card>
+      <ImportHoleriteModal open={importOpen} onClose={() => setImportOpen(false)} />
     </div>
   );
 }
