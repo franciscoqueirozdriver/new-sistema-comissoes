@@ -1,17 +1,10 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 
-type Papel = "admin" | "usuario" | "usuarioplus";
-type LinhaPermissao = {
-  tipo: Papel;
-  rota: string;
-  visualizar: boolean;
-  editar: boolean;
-  excluir: boolean;
-  exportar: boolean;
-};
+/** @typedef {"admin"|"usuario"|"usuarioplus"} Papel */
+/** @typedef {{ tipo:Papel, rota:string, visualizar:boolean, editar:boolean, excluir:boolean, exportar:boolean }} LinhaPermissao */
 
-const defaultLinha: LinhaPermissao = {
+const defaultLinha = {
   tipo: "usuario",
   rota: "/nova-rota",
   visualizar: true,
@@ -19,18 +12,18 @@ const defaultLinha: LinhaPermissao = {
   excluir: false,
   exportar: true,
 };
+const tipos = ["admin", "usuario", "usuarioplus"];
 
-const tipos: Papel[] = ["admin", "usuario", "usuarioplus"];
-
-const keyOf = (item: LinhaPermissao) => `${item.tipo}|${item.rota}`;
+const keyOf = (item) => `${item.tipo}|${item.rota}`;
 
 export default function PermissoesPage() {
   const { data: session, status } = useSession();
-  const isAdmin = session?.user?.role === "admin";
+  const role = session?.user?.role ?? "usuario";
+  const isAdmin = role === "admin";
 
-  const [itens, setItens] = useState<LinhaPermissao[]>([]);
-  const [alterados, setAlterados] = useState<Record<string, LinhaPermissao>>({});
-  const [filtroTipo, setFiltroTipo] = useState<Papel | "todos">("todos");
+  const [itens, setItens] = useState([]);
+  const [alterados, setAlterados] = useState({});
+  const [filtroTipo, setFiltroTipo] = useState("todos");
   const [filtroRota, setFiltroRota] = useState("");
   const [somenteAlterados, setSomenteAlterados] = useState(false);
 
@@ -50,17 +43,13 @@ export default function PermissoesPage() {
     return <p className="p-4">Acesso negado. Somente administradores.</p>;
   }
 
-  const marcarAlterado = (item: LinhaPermissao) => {
+  const marcarAlterado = (item) => {
     setAlterados((prev) => ({ ...prev, [keyOf(item)]: item }));
   };
 
-  const atualizarItem = (
-    index: number,
-    campo: keyof LinhaPermissao,
-    valor: any
-  ) => {
+  const atualizarItem = (index, campo, valor) => {
     const novos = [...itens];
-    (novos[index] as any)[campo] = valor;
+    novos[index][campo] = valor;
     setItens(novos);
     marcarAlterado(novos[index]);
   };
@@ -71,7 +60,7 @@ export default function PermissoesPage() {
     marcarAlterado(nova);
   };
 
-  const removerLinha = async (item: LinhaPermissao) => {
+  const removerLinha = async (item) => {
     await fetch(
       `/api/permissoes?tipo=${encodeURIComponent(item.tipo)}&rota=${encodeURIComponent(
         item.rota
@@ -107,7 +96,7 @@ export default function PermissoesPage() {
     return true;
   });
 
-  const camposBooleanos: (keyof LinhaPermissao)[] = [
+  const camposBooleanos = [
     "visualizar",
     "editar",
     "excluir",
@@ -121,7 +110,7 @@ export default function PermissoesPage() {
         <select
           className="border p-1"
           value={filtroTipo}
-          onChange={(e) => setFiltroTipo(e.target.value as any)}
+          onChange={(e) => setFiltroTipo(e.target.value)}
         >
           <option value="todos">todos</option>
           {tipos.map((t) => (
@@ -185,10 +174,8 @@ export default function PermissoesPage() {
                 <td key={c} className="border p-1">
                   <input
                     type="checkbox"
-                    checked={item[c] as any}
-                    onChange={() =>
-                      atualizarItem(idx, c, !(item as any)[c])
-                    }
+                    checked={item[c]}
+                    onChange={() => atualizarItem(idx, c, !item[c])}
                   />
                 </td>
               ))}

@@ -1,4 +1,3 @@
-import type { NextApiRequest, NextApiResponse } from "next";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
 import { getSheetData, appendRows, updateSheet } from "@/lib/googleSheetsService";
@@ -6,28 +5,21 @@ import { getSheetData, appendRows, updateSheet } from "@/lib/googleSheetsService
 export const dynamic = 'force-dynamic';
 
 const SHEET_NAME = "Permissoes";
-const HEADERS = ["tipo", "rota", "visualizar", "editar", "excluir", "exportar"] as const;
+const HEADERS = ["tipo", "rota", "visualizar", "editar", "excluir", "exportar"];
 
-export type Papel = "admin" | "usuario" | "usuarioplus";
-export type LinhaPermissao = {
-  tipo: Papel;
-  rota: string;
-  visualizar: boolean;
-  editar: boolean;
-  excluir: boolean;
-  exportar: boolean;
-};
+/** @typedef {"admin"|"usuario"|"usuarioplus"} Papel */
+/** @typedef {{ tipo:Papel, rota:string, visualizar:boolean, editar:boolean, excluir:boolean, exportar:boolean }} LinhaPermissao */
 
-const parseBool = (val: any): boolean => {
+const parseBool = (val) => {
   if (typeof val === "boolean") return val;
   if (typeof val === "string") return val.toLowerCase() === "true";
   return false;
 };
 
-const boolToSheet = (b: boolean): string => (b ? "TRUE" : "FALSE");
+const boolToSheet = (b) => (b ? "TRUE" : "FALSE");
 
-const validateItem = (item: LinhaPermissao): boolean => {
-  const tipos: Papel[] = ["admin", "usuario", "usuarioplus"];
+const validateItem = (item) => {
+  const tipos = ["admin", "usuario", "usuarioplus"];
   return (
     tipos.includes(item.tipo) &&
     typeof item.rota === "string" &&
@@ -35,13 +27,11 @@ const validateItem = (item: LinhaPermissao): boolean => {
   );
 };
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
-  if (!session || session.user?.role !== "admin") {
-    return res.status(403).json({ message: "Forbidden" });
+  const role = (session?.user?.role) || "usuario";
+  if (role !== "admin") {
+    return res.status(403).send("Apenas administradores");
   }
 
   if (req.method === "GET") {
@@ -50,8 +40,8 @@ export default async function handler(
       if (header.join() !== HEADERS.join()) {
         return res.status(500).json({ message: "Cabeçalho inválido" });
       }
-      const items: LinhaPermissao[] = rows.map((row) => ({
-        tipo: row[0] as Papel,
+      const items = rows.map((row) => ({
+        tipo: row[0],
         rota: row[1],
         visualizar: parseBool(row[2]),
         editar: parseBool(row[3]),
@@ -59,13 +49,13 @@ export default async function handler(
         exportar: parseBool(row[5]),
       }));
       return res.status(200).json({ items });
-    } catch (error: any) {
+    } catch (error) {
       return res.status(500).json({ message: error.message });
     }
   }
 
   if (req.method === "PUT") {
-    const body = req.body as { items?: LinhaPermissao[] };
+    const body = req.body || {};
     if (!body.items || !Array.isArray(body.items)) {
       return res.status(400).json({ message: "items inválido" });
     }
@@ -74,7 +64,7 @@ export default async function handler(
       if (header.join() !== HEADERS.join()) {
         return res.status(500).json({ message: "Cabeçalho inválido" });
       }
-      const indexMap = new Map<string, number>();
+      const indexMap = new Map();
       rows.forEach((row, idx) => {
         indexMap.set(`${row[0]}|${row[1]}`, idx);
       });
@@ -92,20 +82,21 @@ export default async function handler(
           boolToSheet(item.exportar),
         ];
         if (indexMap.has(key)) {
-          rows[indexMap.get(key)!] = newRow;
+          const idx = indexMap.get(key);
+          if (idx !== undefined) rows[idx] = newRow;
         } else {
           rows.push(newRow);
         }
       }
       await updateSheet(SHEET_NAME, [HEADERS, ...rows]);
       return res.status(200).json({ ok: true });
-    } catch (error: any) {
+    } catch (error) {
       return res.status(500).json({ message: error.message });
     }
   }
 
   if (req.method === "POST") {
-    const body = req.body as { item?: LinhaPermissao };
+    const body = req.body || {};
     if (!body.item || !validateItem(body.item)) {
       return res.status(400).json({ message: "item inválido" });
     }
@@ -120,7 +111,7 @@ export default async function handler(
     try {
       await appendRows(SHEET_NAME, [row]);
       return res.status(200).json({ ok: true });
-    } catch (error: any) {
+    } catch (error) {
       return res.status(500).json({ message: error.message });
     }
   }
@@ -138,7 +129,7 @@ export default async function handler(
       const filtered = rows.filter((row) => !(row[0] === tipo && row[1] === rota));
       await updateSheet(SHEET_NAME, [HEADERS, ...filtered]);
       return res.status(200).json({ ok: true });
-    } catch (error: any) {
+    } catch (error) {
       return res.status(500).json({ message: error.message });
     }
   }
