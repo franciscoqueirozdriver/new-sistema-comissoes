@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
-
-const columns = ['mes','salario_base','comissao','dsr','dias_dsr','data_pagamento','user_email','fonte_arquivo'];
+import { HOLERITE_COLUMNS } from '@/lib/constants/holerites';
 
 export default function ImportHoleriteModal({ isOpen, onClose }) {
   const { data: session } = useSession();
@@ -13,9 +12,7 @@ export default function ImportHoleriteModal({ isOpen, onClose }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0] || null);
-  };
+  const handleFileChange = (e) => setFile(e.target.files[0] || null);
 
   const handleUpload = async () => {
     if (!file) return;
@@ -27,21 +24,17 @@ export default function ImportHoleriteModal({ isOpen, onClose }) {
       const res = await fetch('/api/import-holerite', { method: 'POST', body: formData });
       if (!res.ok) throw new Error('Falha ao processar PDF.');
       const data = await res.json();
-      if (data.requiresMapping) {
-        const detected = Object.entries(data.fieldsExtracted || {}).map(([key, value]) => ({
-          key,
-          value,
-          mapTo: columns.includes(key) ? key : ''
-        }));
-        const email = session?.user?.email || '';
-        detected.push({ key: 'user_email', value: email, mapTo: 'user_email' });
-        detected.push({ key: 'fonte_arquivo', value: data.fileName || '', mapTo: 'fonte_arquivo' });
-        setRows(detected);
-        setFileName(data.fileName || '');
-        setStep('mapping');
-      } else {
-        setError('Dados inválidos.');
-      }
+      const detected = HOLERITE_COLUMNS.map((col) => {
+        let value = data.fieldsExtracted?.[col] || '';
+        if (col === 'user_email') value = session?.user?.email || '';
+        if (col === 'fonte_arquivo') value = data.fileName || '';
+        if (col === 'status_validacao') value = 'pendente';
+        if (col === 'rubricas_json') value = '';
+        return { key: col, value };
+      });
+      setRows(detected);
+      setFileName(data.fileName || '');
+      setStep('mapping');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -49,25 +42,24 @@ export default function ImportHoleriteModal({ isOpen, onClose }) {
     }
   };
 
-  const addRow = () => setRows([...rows, { key: '', value: '', mapTo: '' }]);
-
-  const updateRow = (index, updates) => {
-    setRows(rows.map((r, i) => (i === index ? { ...r, ...updates } : r)));
+  const updateRow = (index, value) => {
+    setRows(rows.map((r, i) => (i === index ? { ...r, value } : r)));
   };
 
   const handleConfirm = async () => {
     const payload = {};
     rows.forEach((r) => {
-      if (r.mapTo) payload[r.mapTo] = r.value || '';
+      payload[r.key] = r.value || '';
     });
     if (!session?.user?.email) {
       setError('Usuário não autenticado.');
       return;
     }
-    // garantir e-mail e nome do arquivo corretos
     payload.user_email = session.user.email;
-    payload.fonte_arquivo = fileName;
-    const required = columns.filter((c) => c !== 'data_pagamento');
+    payload.fonte_arquivo = fileName || 'manual';
+    if (!payload.status_validacao) payload.status_validacao = 'pendente';
+    if (!payload.rubricas_json) payload.rubricas_json = '';
+    const required = HOLERITE_COLUMNS.filter((c) => c !== 'rubricas_json' && c !== 'status_validacao');
     const missing = required.filter((c) => !payload[c]);
     if (missing.length) {
       setError('Preencha todos os campos antes de salvar.');
@@ -76,7 +68,7 @@ export default function ImportHoleriteModal({ isOpen, onClose }) {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch('/api/holerites', {
+      const res = await fetch('/api/holerites/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -119,43 +111,23 @@ export default function ImportHoleriteModal({ isOpen, onClose }) {
                 <tr>
                   <th className="text-left">Campo</th>
                   <th className="text-left">Valor</th>
-                  <th className="text-left">PARA</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row, idx) => (
-                  <tr key={idx}>
+                  <tr key={row.key}>
                     <td className="py-1 pr-2">{row.key}</td>
                     <td className="py-1 pr-2">
                       <input
                         className="w-full p-1 border rounded"
                         value={row.value}
-                        onChange={(e) => updateRow(idx, { value: e.target.value })}
+                        onChange={(e) => updateRow(idx, e.target.value)}
                       />
-                    </td>
-                    <td className="py-1">
-                      <select
-                        className="w-full p-1 border rounded bg-white"
-                        value={row.mapTo}
-                        onChange={(e) => updateRow(idx, { mapTo: e.target.value })}
-                      >
-                        <option value="">Selecione</option>
-                        {columns.map((col) => (
-                          <option key={col} value={col}>{col}</option>
-                        ))}
-                      </select>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <button
-              type="button"
-              onClick={addRow}
-              className="px-2 py-1 text-sm border rounded"
-            >
-              Adicionar Campo
-            </button>
           </div>
         )}
         {error && <p className="text-red-500 text-sm">{error}</p>}

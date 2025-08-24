@@ -1,4 +1,5 @@
-import { appendRows, getSheetData } from '@/lib/googleSheetsService';
+import { getSheetData, upsertHoleriteRow } from '@/lib/googleSheetsService';
+import { HoleriteSchema } from '@/lib/schemas/holerite';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth]';
 
@@ -15,6 +16,20 @@ export default async function handler(req, res) {
     return res.status(405).end(`Método ${req.method} não permitido.`);
   }
 
+  // Tenta validar no novo formato com 15 colunas
+  const parsed = HoleriteSchema.safeParse(req.body);
+  if (parsed.success) {
+    try {
+      await upsertHoleriteRow(parsed.data);
+      return res.status(201).json({ ok: true, holerite_ID: parsed.data.holerite_ID });
+    } catch (error) {
+      console.error('Erro ao salvar holerite:', error);
+      return res.status(500).json({ error: 'Erro ao salvar holerite.' });
+    }
+  }
+
+  // Fluxo antigo (compatibilidade) com 9 colunas
+  console.warn('⚠️ Dados no formato antigo de holerite. Considere atualizar para 15 colunas.', parsed.error.issues);
   const { mes, salario_base, comissao, dsr, dias_dsr, data_pagamento = '', user_email, fonte_arquivo } = req.body;
 
   if (!mes || !salario_base || !comissao || !dsr || !dias_dsr || !user_email || !fonte_arquivo) {
@@ -78,23 +93,28 @@ export default async function handler(req, res) {
     const holeriteID = gerarHoleriteID(mes, user_email, existingForId);
     console.log('holerite_ID gerado:', holeriteID);
 
-    const row = [
+    const data = {
       mes,
+      competencia: '',
+      empresa: '',
       salario_base,
       comissao,
       dsr,
       dias_dsr,
+      valor_bruto: '',
+      valor_liquido: '',
       data_pagamento,
       user_email,
       fonte_arquivo,
-      holeriteID,
-    ];
-    console.log('Dados enviados para planilha Holerites:', row);
-    await appendRows('Holerites', [row]);
-    return res.status(201).json({ success: true });
+      holerite_ID: holeriteID,
+      rubricas_json: '',
+      status_validacao: 'pendente',
+    };
+    console.log('Dados enviados para planilha Holerites:', data);
+    await upsertHoleriteRow(data);
+    return res.status(201).json({ success: true, holerite_ID: holeriteID });
   } catch (error) {
     console.error('Erro ao salvar holerite:', error);
     return res.status(500).json({ error: 'Erro ao salvar holerite.' });
   }
 }
-
