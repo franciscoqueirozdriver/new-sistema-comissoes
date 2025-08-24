@@ -11,8 +11,9 @@ const navLinks = [
   { href: "/relatorios", label: "Relatórios" },
   { href: "/configuracoes", label: "Configurações" },
   // Link que só será exibido para administradores
+  { href: "/admin/permissoes", label: "Permissões", admin: true },
   { href: "/gerenciar-usuarios", label: "Gerenciar Usuários", admin: true },
-  { href: "/calcular-dsr", label: "Calcular DSR", admin: true }, 
+  { href: "/calcular-dsr", label: "Calcular DSR", admin: true },
 ];
 
 
