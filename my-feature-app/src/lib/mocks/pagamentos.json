@@ -1,0 +1,49 @@
+[
+  {
+    "id_pagamento": "1",
+    "data_prevista": "2024-08-05",
+    "empresa": "Empresa A",
+    "tipo": "Comissão",
+    "parcela_formatada": "1/3",
+    "num_parcela": 1,
+    "valor_bruto": "R$ 1.500,00",
+    "percentual_imposto": "10%",
+    "percentual_comissao": "5%",
+    "status": "Pago"
+  },
+  {
+    "id_pagamento": "2",
+    "data_prevista": "2024-08-10",
+    "empresa": "Empresa B",
+    "tipo": "Comissão",
+    "parcela_formatada": "2/2",
+    "num_parcela": 2,
+    "valor_bruto": "R$ 2.000,00",
+    "percentual_imposto": "15%",
+    "percentual_comissao": "5%",
+    "status": "Pendente"
+  },
+  {
+    "id_pagamento": "3",
+    "data_prevista": "2024-08-15",
+    "empresa": "Empresa C",
+    "tipo": "Bônus",
+    "num_parcela": 1,
+    "valor_bruto": "R$ 500,00",
+    "percentual_imposto": "5%",
+    "percentual_comissao": "10%",
+    "status": "Pago"
+  },
+  {
+    "id_pagamento": "4",
+    "data_prevista": "2024-07-20",
+    "empresa": "Empresa D",
+    "tipo": "Comissão",
+    "parcela_formatada": "1/1",
+    "num_parcela": 1,
+    "valor_bruto": "R$ 3.000,00",
+    "percentual_imposto": "20%",
+    "percentual_comissao": "4%",
+    "status": "Atrasado"
+  }
+]
